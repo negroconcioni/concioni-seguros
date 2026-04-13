@@ -45,13 +45,6 @@ function App() {
 
   const emailCheckDone = useRef(false);
 
-  const siniestrosRef = useRef(siniestros);
-  const configRef = useRef(config);
-  const updateRef = useRef(updateSiniestro);
-  siniestrosRef.current = siniestros;
-  configRef.current = config;
-  updateRef.current = updateSiniestro;
-
   useEffect(() => {
     if (!mobileNavOpen) {
       return;
@@ -92,18 +85,19 @@ function App() {
     if (emailCheckDone.current) {
       return;
     }
+    if (siniestros.length === 0) {
+      return;
+    }
     emailCheckDone.current = true;
+    void checkAndSendEmails(siniestros, config, updateSiniestro);
 
-    const run = () => {
-      void checkAndSendEmails(siniestrosRef.current, configRef.current, updateRef.current).catch((err) => {
-        console.error("checkAndSendEmails", err);
-      });
-    };
+    const interval = window.setInterval(() => {
+      emailCheckDone.current = false;
+      void checkAndSendEmails(siniestros, config, updateSiniestro);
+    }, 3600000);
 
-    run();
-    const interval = window.setInterval(run, 3600000);
     return () => window.clearInterval(interval);
-  }, []);
+  }, [siniestros, config]);
 
   function openSiniestroDetail(siniestroId: string) {
     setDetailId(siniestroId);
