@@ -19,10 +19,10 @@ function Modal({ open, onClose, title, children, footer }: ModalProps) {
       onClick={onClose}
     >
       <div
-        className="w-full max-w-xl overflow-hidden rounded-xl bg-white shadow-xl"
+        className="flex max-h-[90vh] w-full max-w-xl min-h-0 flex-col overflow-hidden rounded-xl bg-white shadow-xl"
         onClick={(event) => event.stopPropagation()}
       >
-        <header className="flex items-center justify-between border-b border-[#e2e0db] px-5 py-4">
+        <header className="flex shrink-0 items-center justify-between border-b border-[#e2e0db] px-5 py-4">
           <h3 className="text-[17px] font-semibold text-[#1a1916]">{title}</h3>
           <button
             type="button"
@@ -33,9 +33,9 @@ function Modal({ open, onClose, title, children, footer }: ModalProps) {
             x
           </button>
         </header>
-        <section className="max-h-[90vh] overflow-y-auto px-5 py-4">{children}</section>
+        <section className="modal-body min-h-0 flex-1 overflow-y-auto px-5 py-4">{children}</section>
         {footer ? (
-          <footer className="border-t border-[#e2e0db] bg-[#f5f4f1] px-5 py-3">{footer}</footer>
+          <footer className="shrink-0 border-t border-[#e2e0db] bg-[#f5f4f1] px-5 py-3">{footer}</footer>
         ) : null}
       </div>
     </div>

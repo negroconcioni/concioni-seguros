@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Button from "./ui/Button";
 import Modal from "./ui/Modal";
 import Toggle from "./ui/Toggle";
@@ -19,6 +19,15 @@ const INSPECTORS = [
 ] as const;
 
 const FORM_ID = "siniestro-modal-form";
+
+/** Solo `YYYY-MM-DD` válido para <input type="date">; si no, vacío (evita valores raros del browser). */
+function toDateInputValue(raw: string | undefined): string {
+  const s = (raw ?? "").trim().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    return "";
+  }
+  return s;
+}
 
 type SiniestroModalProps = {
   open: boolean;
@@ -61,11 +70,11 @@ function loadFromSiniestro(s: Siniestro) {
     nro: s.nro,
     danio: s.danio,
     taller: s.taller,
-    fpedido: (s.fpedido || "").slice(0, 10),
-    fentrega: (s.fentrega || "").slice(0, 10),
+    fpedido: toDateInputValue(s.fpedido),
+    fentrega: toDateInputValue(s.fentrega),
     proveedor: s.proveedor,
     reclamo: s.reclamo,
-    rfecha: s.rfecha ? (s.rfecha || "").slice(0, 10) : "",
+    rfecha: s.rfecha ? toDateInputValue(s.rfecha) : "",
     cia: s.cia,
     franquicia: s.franquicia,
     monto_franquicia: s.monto_franquicia != null ? String(s.monto_franquicia) : "",
@@ -75,25 +84,29 @@ function loadFromSiniestro(s: Siniestro) {
 function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps) {
   const { siniestros, addSiniestro, updateSiniestro } = useSiniestros();
   const { showToast } = useToast();
+  const siniestrosRef = useRef(siniestros);
+  siniestrosRef.current = siniestros;
 
   const [form, setForm] = useState(emptyFormState);
 
+  // Solo al abrir / cambiar modo de edición: si incluimos `siniestros` aquí, cada evento en tiempo real
+  // resetea el formulario y oculta campos condicionales (ej. monto de franquicia).
   useEffect(() => {
     if (!open) {
       setForm(emptyFormState());
       return;
     }
-    if (editingId) {
-      const found = siniestros.find((x) => x.id === editingId);
-      if (found) {
-        setForm(loadFromSiniestro(found));
-      } else {
-        setForm(emptyFormState());
-      }
+    if (!editingId) {
+      setForm(emptyFormState());
+      return;
+    }
+    const found = siniestrosRef.current.find((x) => x.id === editingId);
+    if (found) {
+      setForm(loadFromSiniestro(found));
     } else {
       setForm(emptyFormState());
     }
-  }, [open, editingId, siniestros]);
+  }, [open, editingId]);
 
   const inspectorOptions = useMemo(() => {
     if (form.inspector && !INSPECTORS.includes(form.inspector as (typeof INSPECTORS)[number])) {
@@ -249,7 +262,8 @@ function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps
               <label className="mb-1 block text-xs text-[#6b6860]">Fecha pedido</label>
               <input
                 type="date"
-                value={form.fpedido}
+                autoComplete="off"
+                value={form.fpedido || ""}
                 onChange={(e) => setForm((f) => ({ ...f, fpedido: e.target.value }))}
                 className="w-full rounded-lg border border-[#d0cdc7] px-3 py-2 text-sm outline-none transition"
               />
@@ -258,7 +272,8 @@ function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps
               <label className="mb-1 block text-xs text-[#6b6860]">Fecha entrega estimada</label>
               <input
                 type="date"
-                value={form.fentrega}
+                autoComplete="off"
+                value={form.fentrega || ""}
                 onChange={(e) => setForm((f) => ({ ...f, fentrega: e.target.value }))}
                 className="w-full rounded-lg border border-[#d0cdc7] px-3 py-2 text-sm outline-none transition"
               />
@@ -284,7 +299,8 @@ function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps
               <label className="mb-1 block text-xs text-[#6b6860]">Fecha del reclamo</label>
               <input
                 type="date"
-                value={form.rfecha}
+                autoComplete="off"
+                value={form.rfecha || ""}
                 onChange={(e) => setForm((f) => ({ ...f, rfecha: e.target.value }))}
                 className="w-full max-w-xs rounded-lg border border-[#d0cdc7] px-3 py-2 text-sm outline-none transition"
               />
