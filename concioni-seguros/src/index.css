@@ -1,0 +1,24 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply font-sans antialiased text-[#1a1916];
+  }
+
+  button,
+  input,
+  optgroup,
+  select,
+  textarea {
+    @apply font-sans;
+  }
+
+  input:focus,
+  select:focus,
+  textarea:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(29, 78, 216, 0.08);
+  }
+}
