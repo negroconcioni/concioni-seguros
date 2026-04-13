@@ -54,6 +54,7 @@ export async function checkAndSendEmails(
         asegurado: `${s.nombre} ${s.apellido}`.trim(),
         nro_siniestro: s.nro,
         taller: s.taller || "No especificado",
+        proveedor: s.proveedor || "No especificado",
         mensaje: "Verificar entrega de repuestos.",
       });
 

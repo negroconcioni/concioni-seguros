@@ -38,6 +38,13 @@ export function exportToExcel(siniestros: Siniestro[]): void {
     cia: s.cia,
     cleas: boolToText(s.cleas),
     franquicia: boolToText(s.franquicia),
+    "Monto Franquicia":
+      s.monto_franquicia != null
+        ? s.monto_franquicia.toLocaleString("es-AR", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })
+        : "—",
     created: formatIsoDate(s.created),
     emailSent: boolToText(s.emailSent),
   }));

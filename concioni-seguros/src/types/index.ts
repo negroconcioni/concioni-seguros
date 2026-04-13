@@ -14,6 +14,7 @@ export type Siniestro = {
   cia: string;
   cleas: boolean;
   franquicia: boolean;
+  monto_franquicia: number | null;
   created: string;
   emailSent: boolean;
 };

@@ -58,6 +58,14 @@ function rowToSiniestro(row: Record<string, unknown>): Siniestro {
     cia: String(row.cia ?? ""),
     cleas: Boolean(row.cleas),
     franquicia: Boolean(row.franquicia),
+    monto_franquicia: (() => {
+      const v = row.monto_franquicia;
+      if (v == null || v === "") {
+        return null;
+      }
+      const n = typeof v === "number" ? v : Number(v);
+      return Number.isFinite(n) ? n : null;
+    })(),
     created: String(row.created_at ?? row.created ?? ""),
     emailSent: Boolean(row.email_sent ?? row.emailSent),
   };

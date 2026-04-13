@@ -49,6 +49,7 @@ function emptyFormState() {
     rfecha: "",
     cia: "",
     franquicia: false,
+    monto_franquicia: "",
   };
 }
 
@@ -67,6 +68,7 @@ function loadFromSiniestro(s: Siniestro) {
     rfecha: s.rfecha ? (s.rfecha || "").slice(0, 10) : "",
     cia: s.cia,
     franquicia: s.franquicia,
+    monto_franquicia: s.monto_franquicia != null ? String(s.monto_franquicia) : "",
   };
 }
 
@@ -123,6 +125,17 @@ function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps
     }
 
     const cleas = isCleas(form.cia);
+    const montoFranquiciaParsed = (() => {
+      if (!form.franquicia) {
+        return null;
+      }
+      const t = form.monto_franquicia.trim();
+      if (!t) {
+        return null;
+      }
+      const n = Number(t);
+      return Number.isFinite(n) && n >= 0 ? n : null;
+    })();
     const payload: Omit<Siniestro, "id" | "created" | "emailSent"> = {
       inspector: inspectorOk,
       nombre: nombreOk,
@@ -138,6 +151,7 @@ function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps
       cia: form.cia.trim(),
       cleas,
       franquicia: form.franquicia,
+      monto_franquicia: montoFranquiciaParsed,
     };
 
     if (editingId) {
@@ -303,9 +317,29 @@ function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps
           <SectionLabel>Carta de franquicia</SectionLabel>
           <Toggle
             checked={form.franquicia}
-            onChange={(next) => setForm((f) => ({ ...f, franquicia: next }))}
+            onChange={(next) =>
+              setForm((f) => ({
+                ...f,
+                franquicia: next,
+                monto_franquicia: next ? f.monto_franquicia : "",
+              }))
+            }
             label="Aplica carta de franquicia?"
           />
+          {form.franquicia ? (
+            <div className="mt-3">
+              <label className="mb-1 block text-xs text-[#6b6860]">Monto de franquicia</label>
+              <input
+                type="number"
+                min={0}
+                step="0.01"
+                placeholder="0.00"
+                value={form.monto_franquicia}
+                onChange={(e) => setForm((f) => ({ ...f, monto_franquicia: e.target.value }))}
+                className="w-full rounded-lg border border-[#d0cdc7] px-3 py-2 text-sm outline-none transition"
+              />
+            </div>
+          ) : null}
         </div>
       </form>
     </Modal>

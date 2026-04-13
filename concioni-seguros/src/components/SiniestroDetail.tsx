@@ -98,6 +98,15 @@ function SiniestroDetail({ open, onClose, siniestroId, onEdit }: SiniestroDetail
               <Badge variant={s.franquicia ? "green" : "neutral"}>{s.franquicia ? "Si" : "No"}</Badge>
             </dd>
           </div>
+          {s.monto_franquicia != null ? (
+            <DetailField label="Monto de franquicia">
+              ${" "}
+              {s.monto_franquicia.toLocaleString("es-AR", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+            </DetailField>
+          ) : null}
         </dl>
       )}
     </Modal>
