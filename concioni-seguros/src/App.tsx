@@ -39,6 +39,7 @@ function App() {
   const [detailId, setDetailId] = useState<string | null>(null);
 
   const [configOpen, setConfigOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const activeAlerts = deliveryAlertCount(siniestros);
 
@@ -50,6 +51,42 @@ function App() {
   siniestrosRef.current = siniestros;
   configRef.current = config;
   updateRef.current = updateSiniestro;
+
+  useEffect(() => {
+    if (!mobileNavOpen) {
+      return;
+    }
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [mobileNavOpen]);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    const closeIfDesktop = () => {
+      if (mq.matches) {
+        setMobileNavOpen(false);
+      }
+    };
+    mq.addEventListener("change", closeIfDesktop);
+    closeIfDesktop();
+    return () => mq.removeEventListener("change", closeIfDesktop);
+  }, []);
+
+  useEffect(() => {
+    if (!mobileNavOpen) {
+      return;
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setMobileNavOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [mobileNavOpen]);
 
   useEffect(() => {
     if (emailCheckDone.current) {
@@ -105,21 +142,37 @@ function App() {
   return (
     <>
       <div className="min-h-screen bg-neutral-bg font-sans text-brand-text">
+        {mobileNavOpen ? (
+          <div
+            role="presentation"
+            className="fixed inset-0 z-40 cursor-pointer bg-black/40 md:hidden"
+            onClick={() => setMobileNavOpen(false)}
+          />
+        ) : null}
         <div className="flex">
           <Sidebar
             activeView={activeView}
-            onChangeView={setActiveView}
-            onOpenConfig={() => setConfigOpen(true)}
+            onChangeView={(view) => {
+              setActiveView(view);
+              setMobileNavOpen(false);
+            }}
+            onOpenConfig={() => {
+              setConfigOpen(true);
+              setMobileNavOpen(false);
+            }}
             activeAlerts={activeAlerts}
+            mobileOpen={mobileNavOpen}
           />
-          <div className="min-h-screen flex-1">
+          <div className="min-h-screen w-full min-w-0 flex-1">
             <Topbar
               title={viewTitles[activeView]}
               onExportExcel={handleExportExcel}
               onNewSiniestro={openNewSiniestro}
               isOnline={isOnline}
+              mobileNavOpen={mobileNavOpen}
+              onToggleMobileNav={() => setMobileNavOpen((o) => !o)}
             />
-            <main className="p-6">
+            <main className="w-full p-4 sm:p-6">
               {activeView === "dashboard" ? (
                 <Dashboard onOpenSiniestroDetail={openSiniestroDetail} />
               ) : null}

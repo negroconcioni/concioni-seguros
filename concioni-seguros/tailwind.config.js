@@ -3,6 +3,15 @@ export default {
   content: ["./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
+      keyframes: {
+        modalSheetIn: {
+          from: { transform: "translateY(100%)" },
+          to: { transform: "translateY(0)" },
+        },
+      },
+      animation: {
+        "modal-sheet-in": "modalSheetIn 0.28s ease-out both",
+      },
       fontFamily: {
         sans: ["Onest", "sans-serif"],
       },

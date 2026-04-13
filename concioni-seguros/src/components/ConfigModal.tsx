@@ -52,9 +52,11 @@ function ConfigModal({ open, onClose }: ConfigModalProps) {
         </div>
       }
     >
-      <form id={FORM_ID} onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="mb-1 block text-xs font-medium text-[#6b6860]">Email para notificaciones</label>
+      <form id={FORM_ID} onSubmit={handleSubmit} className="space-y-3 md:space-y-4">
+        <div className="min-w-0">
+          <label className="mb-1 block text-xs font-medium text-[#6b6860] max-md:mb-1.5 max-md:text-[13px] max-md:text-[#454440]">
+            Email para notificaciones
+          </label>
           <input
             type="email"
             value={email}
@@ -64,8 +66,10 @@ function ConfigModal({ open, onClose }: ConfigModalProps) {
             autoComplete="email"
           />
         </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-[#6b6860]">EmailJS Service ID</label>
+        <div className="min-w-0">
+          <label className="mb-1 block text-xs font-medium text-[#6b6860] max-md:mb-1.5 max-md:text-[13px] max-md:text-[#454440]">
+            EmailJS Service ID
+          </label>
           <input
             value={sid}
             onChange={(e) => setSid(e.target.value)}
@@ -74,8 +78,10 @@ function ConfigModal({ open, onClose }: ConfigModalProps) {
             autoComplete="off"
           />
         </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-[#6b6860]">EmailJS Template ID</label>
+        <div className="min-w-0">
+          <label className="mb-1 block text-xs font-medium text-[#6b6860] max-md:mb-1.5 max-md:text-[13px] max-md:text-[#454440]">
+            EmailJS Template ID
+          </label>
           <input
             value={tid}
             onChange={(e) => setTid(e.target.value)}
@@ -84,8 +90,10 @@ function ConfigModal({ open, onClose }: ConfigModalProps) {
             autoComplete="off"
           />
         </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-[#6b6860]">EmailJS Public Key</label>
+        <div className="min-w-0">
+          <label className="mb-1 block text-xs font-medium text-[#6b6860] max-md:mb-1.5 max-md:text-[13px] max-md:text-[#454440]">
+            EmailJS Public Key
+          </label>
           <input
             value={pk}
             onChange={(e) => setPk(e.target.value)}
@@ -95,7 +103,7 @@ function ConfigModal({ open, onClose }: ConfigModalProps) {
           />
         </div>
 
-        <div className="rounded-lg bg-[#f5f4f1] p-4 text-sm text-[#6b6860]">
+        <div className="rounded-lg bg-[#f5f4f1] p-3 text-sm text-[#6b6860] md:p-4">
           <p className="font-medium text-[#1a1916]">EmailJS y plantilla de correo</p>
           <p className="mt-2 leading-relaxed">
             En EmailJS crea un servicio y una plantilla asociados a ese servicio. En la plantilla podes usar

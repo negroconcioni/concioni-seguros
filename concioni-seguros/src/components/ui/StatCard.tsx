@@ -8,7 +8,7 @@ type StatCardProps = {
 function StatCard({ label, value, sub, inverted = false }: StatCardProps) {
   return (
     <article
-      className={`rounded-xl p-4 ${
+      className={`min-w-0 w-full rounded-xl p-4 ${
         inverted ? "bg-[#1d4ed8] text-white" : "border border-[#e2e0db] bg-white text-[#1a1916]"
       }`}
     >

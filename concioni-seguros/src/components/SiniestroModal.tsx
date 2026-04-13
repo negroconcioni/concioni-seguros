@@ -37,7 +37,7 @@ type SiniestroModalProps = {
 
 function SectionLabel({ children }: { children: ReactNode }) {
   return (
-    <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-[#a8a59f]">
+    <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-[#a8a59f] max-md:mb-1.5 max-md:text-[13px] max-md:font-semibold max-md:normal-case max-md:tracking-normal max-md:text-[#454440]">
       {children}
     </h4>
   );
@@ -191,7 +191,7 @@ function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps
         </div>
       }
     >
-      <form id={FORM_ID} onSubmit={handleSubmit} className="space-y-6">
+      <form id={FORM_ID} onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
         <div>
           <SectionLabel>Inspector</SectionLabel>
           <select
@@ -213,27 +213,27 @@ function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps
 
         <div>
           <SectionLabel>Datos del asegurado</SectionLabel>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             <input
               required
               value={form.nombre}
               onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))}
               placeholder="Nombre"
-              className="rounded-lg border border-[#d0cdc7] px-3 py-2 text-sm outline-none transition"
+              className="w-full rounded-lg border border-[#d0cdc7] px-3 py-2 text-sm outline-none transition"
             />
             <input
               required
               value={form.apellido}
               onChange={(e) => setForm((f) => ({ ...f, apellido: e.target.value }))}
               placeholder="Apellido"
-              className="rounded-lg border border-[#d0cdc7] px-3 py-2 text-sm outline-none transition"
+              className="w-full rounded-lg border border-[#d0cdc7] px-3 py-2 text-sm outline-none transition"
             />
             <input
               required
               value={form.nro}
               onChange={(e) => setForm((f) => ({ ...f, nro: e.target.value }))}
               placeholder="Nro. Siniestro"
-              className="rounded-lg border border-[#d0cdc7] px-3 py-2 text-sm outline-none transition"
+              className="w-full rounded-lg border border-[#d0cdc7] px-3 py-2 text-sm outline-none transition"
             />
           </div>
         </div>
@@ -257,9 +257,11 @@ function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps
 
         <div>
           <SectionLabel>Repuestos</SectionLabel>
-          <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-xs text-[#6b6860]">Fecha pedido</label>
+          <div className="mb-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div className="min-w-0">
+              <label className="mb-1 block text-xs font-medium text-[#6b6860] max-md:mb-1.5 max-md:text-[13px] max-md:text-[#454440]">
+                Fecha pedido
+              </label>
               <input
                 type="date"
                 autoComplete="off"
@@ -268,8 +270,10 @@ function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps
                 className="w-full rounded-lg border border-[#d0cdc7] px-3 py-2 text-sm outline-none transition"
               />
             </div>
-            <div>
-              <label className="mb-1 block text-xs text-[#6b6860]">Fecha entrega estimada</label>
+            <div className="min-w-0">
+              <label className="mb-1 block text-xs font-medium text-[#6b6860] max-md:mb-1.5 max-md:text-[13px] max-md:text-[#454440]">
+                Fecha entrega estimada
+              </label>
               <input
                 type="date"
                 autoComplete="off"
@@ -295,14 +299,16 @@ function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps
             label="Se realizo reclamo de repuestos?"
           />
           {form.reclamo ? (
-            <div className="mt-3">
-              <label className="mb-1 block text-xs text-[#6b6860]">Fecha del reclamo</label>
+            <div className="mt-3 min-w-0">
+              <label className="mb-1 block text-xs font-medium text-[#6b6860] max-md:mb-1.5 max-md:text-[13px] max-md:text-[#454440]">
+                Fecha del reclamo
+              </label>
               <input
                 type="date"
                 autoComplete="off"
                 value={form.rfecha || ""}
                 onChange={(e) => setForm((f) => ({ ...f, rfecha: e.target.value }))}
-                className="w-full max-w-xs rounded-lg border border-[#d0cdc7] px-3 py-2 text-sm outline-none transition"
+                className="w-full max-w-full rounded-lg border border-[#d0cdc7] px-3 py-2 text-sm outline-none transition md:max-w-xs"
               />
             </div>
           ) : null}
@@ -343,8 +349,10 @@ function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps
             label="Aplica carta de franquicia?"
           />
           {form.franquicia ? (
-            <div className="mt-3">
-              <label className="mb-1 block text-xs text-[#6b6860]">Monto de franquicia</label>
+            <div className="mt-3 min-w-0">
+              <label className="mb-1 block text-xs font-medium text-[#6b6860] max-md:mb-1.5 max-md:text-[13px] max-md:text-[#454440]">
+                Monto de franquicia
+              </label>
               <input
                 type="number"
                 min={0}
