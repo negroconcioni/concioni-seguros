@@ -25,3 +25,35 @@ export type Config = {
   tid: string;
   pk: string;
 };
+
+export type TipoReclamo = "daño vehicular" | "daños materiales" | "lesiones";
+
+export type ReclamoTercero = {
+  id: string;
+  siniestro_id: string;
+  estado: "pendiente" | "hecho";
+  lugar: string;
+  fecha_siniestro: string;
+  hora_siniestro: string;
+  direccion: string;
+  descripcion: string;
+  tipo_reclamo: TipoReclamo[];
+  dominio_asegurado: string;
+  dominio_tercero: string;
+  documento_asegurado: string;
+  documento_tercero: string;
+  responsable_contacto: string;
+  telefono_contacto: string;
+  email_contacto: string;
+  created_at: string;
+};
+
+export type Archivo = {
+  id: string;
+  siniestro_id: string;
+  reclamo_id: string | null;
+  nombre: string;
+  url: string;
+  tipo: "image" | "pdf";
+  created_at: string;
+};

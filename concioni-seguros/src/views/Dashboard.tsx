@@ -1,8 +1,9 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Badge from "../components/ui/Badge";
 import StatCard from "../components/ui/StatCard";
+import { fetchReclamosPendientes } from "../store/useReclamos";
 import { useSiniestros } from "../store/useSiniestros";
-import type { Siniestro } from "../types";
+import type { ReclamoTercero, Siniestro } from "../types";
 import { formatDate, getDiffDays } from "../utils/date";
 
 type DashboardProps = {
@@ -94,6 +95,28 @@ function UltimoSiniestroCard({ s, onOpen }: UltimoCardProps) {
 
 function Dashboard({ onOpenSiniestroDetail }: DashboardProps) {
   const { siniestros } = useSiniestros();
+  const [reclamosPendientes, setReclamosPendientes] = useState<ReclamoTercero[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const rows = await fetchReclamosPendientes();
+        if (!cancelled) {
+          setReclamosPendientes(rows);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error("Error cargando reclamos pendientes:", error);
+          setReclamosPendientes([]);
+        }
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const total = siniestros.length;
   const vencidas = useMemo(
@@ -106,6 +129,19 @@ function Dashboard({ onOpenSiniestroDetail }: DashboardProps) {
   );
   const cleasCount = useMemo(() => siniestros.filter((s) => s.cleas).length, [siniestros]);
   const reclamoCount = useMemo(() => siniestros.filter((s) => s.reclamo).length, [siniestros]);
+  const reclamosPendientesSiniestros = useMemo(() => {
+    const seen = new Set<string>();
+    const rows: Siniestro[] = [];
+    for (const r of reclamosPendientes) {
+      if (seen.has(r.siniestro_id)) continue;
+      const found = siniestros.find((s) => s.id === r.siniestro_id);
+      if (found) {
+        seen.add(r.siniestro_id);
+        rows.push(found);
+      }
+    }
+    return rows;
+  }, [reclamosPendientes, siniestros]);
 
   const alertas = useMemo(() => {
     const list = siniestros.filter(isAlertCandidate);
@@ -127,50 +163,86 @@ function Dashboard({ onOpenSiniestroDetail }: DashboardProps) {
     <div className="space-y-5 md:space-y-8">
       <section>
         <h2 className="sr-only">Resumen</h2>
-        <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-5">
           <StatCard label="Total Siniestros" value={String(total)} inverted />
           <StatCard label="Entregas Vencidas" value={String(vencidas)} />
           <StatCard label="Aplican CLEAS" value={String(cleasCount)} />
           <StatCard label="Con Reclamo" value={String(reclamoCount)} />
+          <article className="w-full rounded-xl border border-[#f3d8d5] bg-[#fdf0ef] p-4 text-[#c0392b]">
+            <p className="text-[11px] uppercase tracking-wider text-[#c0392b]">Reclamos Pendientes</p>
+            <p className="mt-1 text-[34px] font-bold tracking-tight">{reclamosPendientesSiniestros.length}</p>
+          </article>
         </div>
       </section>
 
-      {alertas.length > 0 ? (
+      {alertas.length > 0 || reclamosPendientesSiniestros.length > 0 ? (
         <section className="w-full min-w-0 rounded-xl border border-[#c7d7fc] bg-[#eff4ff] p-4 md:p-5">
           <h3 className="text-base font-semibold text-[#1d4ed8]">Alertas de entrega pendientes</h3>
-          <ul className="mt-3 space-y-2 md:mt-4 md:space-y-3">
-            {alertas.map((s) => {
-              const d = deliveryDiff(s) ?? 0;
-              return (
-                <li key={s.id} className="min-w-0">
-                  <button
-                    type="button"
-                    onClick={() => onOpenSiniestroDetail(s.id)}
-                    className="flex w-full min-w-0 cursor-pointer flex-col gap-2 rounded-lg border border-transparent bg-white/60 p-3 text-left transition hover:border-[#e2e0db] hover:bg-white sm:flex-row sm:items-start sm:gap-3"
-                  >
-                    <div className="flex min-w-0 flex-1 items-start gap-3">
-                      <span
-                        className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${alertDotClass(d)}`}
-                        aria-hidden
-                      />
+          {alertas.length === 0 ? (
+            <p className="mt-3 text-sm text-[#6b6860]">Sin alertas de repuestos.</p>
+          ) : (
+            <ul className="mt-3 space-y-2 md:mt-4 md:space-y-3">
+              {alertas.map((s) => {
+                const d = deliveryDiff(s) ?? 0;
+                return (
+                  <li key={s.id} className="min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => onOpenSiniestroDetail(s.id)}
+                      className="flex w-full min-w-0 cursor-pointer flex-col gap-2 rounded-lg border border-transparent bg-white/60 p-3 text-left transition hover:border-[#e2e0db] hover:bg-white sm:flex-row sm:items-start sm:gap-3"
+                    >
+                      <div className="flex min-w-0 flex-1 items-start gap-3">
+                        <span
+                          className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${alertDotClass(d)}`}
+                          aria-hidden
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-[#1a1916]">
+                            {`${s.nombre} ${s.apellido}`.trim()} — {s.nro}
+                          </p>
+                          <p className="mt-0.5 text-sm text-[#1d4ed8]">{entregaMessage(d)}</p>
+                          <p className="mt-1 text-xs text-[#6b6860]">
+                            {s.inspector} — {s.taller}
+                          </p>
+                        </div>
+                      </div>
+                      <time className="shrink-0 text-xs font-medium text-[#6b6860] sm:pt-1.5">
+                        {formatDate(s.fentrega)}
+                      </time>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+
+          <div className="mt-4 border-t border-[#c7d7fc] pt-4">
+            <h4 className="text-sm font-semibold text-[#c0392b]">Reclamos contra terceros pendientes</h4>
+            {reclamosPendientesSiniestros.length === 0 ? (
+              <p className="mt-2 text-sm text-[#6b6860]">Sin reclamos pendientes.</p>
+            ) : (
+              <ul className="mt-3 space-y-2">
+                {reclamosPendientesSiniestros.map((s) => (
+                  <li key={s.id}>
+                    <button
+                      type="button"
+                      onClick={() => onOpenSiniestroDetail(s.id)}
+                      className="flex w-full items-center gap-3 rounded-lg border border-transparent bg-white/60 p-3 text-left transition hover:border-[#e2e0db] hover:bg-white"
+                    >
+                      <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#c0392b]" aria-hidden />
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-semibold text-[#1a1916]">
                           {`${s.nombre} ${s.apellido}`.trim()} — {s.nro}
                         </p>
-                        <p className="mt-0.5 text-sm text-[#1d4ed8]">{entregaMessage(d)}</p>
-                        <p className="mt-1 text-xs text-[#6b6860]">
-                          {s.inspector} — {s.taller}
-                        </p>
+                        <p className="mt-0.5 text-sm text-[#c0392b]">Reclamo contra terceros pendiente</p>
+                        <p className="mt-1 text-xs text-[#6b6860]">{s.inspector}</p>
                       </div>
-                    </div>
-                    <time className="shrink-0 text-xs font-medium text-[#6b6860] sm:pt-1.5">
-                      {formatDate(s.fentrega)}
-                    </time>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </section>
       ) : null}
 
