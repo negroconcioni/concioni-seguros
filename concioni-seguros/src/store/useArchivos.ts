@@ -17,47 +17,39 @@ function rowToArchivo(row: Record<string, unknown>): Archivo {
   };
 }
 
-function resolveArchivoTipo(mimeType: string): Archivo["tipo"] {
-  if (mimeType.startsWith("image/")) {
-    return "image";
-  }
-  if (mimeType === "application/pdf") {
-    return "pdf";
-  }
-  throw new Error("Tipo de archivo no soportado. Solo se permiten imagenes o PDF.");
-}
-
-function sanitizeFileName(fileName: string): string {
-  return fileName.replace(/[^a-zA-Z0-9._-]/g, "-");
-}
-
 export async function uploadArchivo(
   file: File,
   siniestro_id: string,
   reclamo_id: string | null,
 ): Promise<Archivo> {
-  const tipo = resolveArchivoTipo(file.type);
-  const unique = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`;
-  const storagePath = `${siniestro_id}/${unique}-${sanitizeFileName(file.name)}`;
+  const tipo: Archivo["tipo"] = file.type.startsWith("image/") ? "image" : "pdf";
+  const nombreUnico = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
+  const path = `${siniestro_id}/${nombreUnico}`;
 
-  const { error: uploadError } = await supabase.storage
+  const { error } = await supabase.storage
     .from("siniestros-archivos")
-    .upload(storagePath, file, { upsert: false });
+    .upload(path, file, {
+      cacheControl: "3600",
+      upsert: false,
+      contentType: file.type,
+    });
 
-  if (uploadError) {
-    throw uploadError;
+  if (error) {
+    console.error(error);
+    throw error;
   }
 
-  const { data: publicUrlData } = supabase.storage
+  const { data: urlData } = supabase.storage
     .from("siniestros-archivos")
-    .getPublicUrl(storagePath);
+    .getPublicUrl(path);
+  const url = urlData.publicUrl;
 
   const payload = {
     id: makeId(),
     siniestro_id,
     reclamo_id,
     nombre: file.name,
-    url: publicUrlData.publicUrl,
+    url,
     tipo,
     created_at: new Date().toISOString(),
   };

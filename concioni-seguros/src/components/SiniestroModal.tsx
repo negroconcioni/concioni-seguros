@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import ArchivosSection from "./ArchivosSection";
 import Button from "./ui/Button";
 import Modal from "./ui/Modal";
 import Toggle from "./ui/Toggle";
+import { uploadArchivo } from "../store/useArchivos";
 import { useToast } from "./ui/Toast";
 import { useSiniestros } from "../store/useSiniestros";
 import type { Siniestro } from "../types";
@@ -40,6 +42,16 @@ function SectionLabel({ children }: { children: ReactNode }) {
     <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-[#a8a59f] max-md:mb-1.5 max-md:text-[13px] max-md:font-semibold max-md:normal-case max-md:tracking-normal max-md:text-[#454440]">
       {children}
     </h4>
+  );
+}
+
+function PdfIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-8 w-8 text-[#c0392b]" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M7 3h7l5 5v13H7z" />
+      <path d="M14 3v6h5" />
+      <path d="M9 15h6M9 18h6" />
+    </svg>
   );
 }
 
@@ -88,16 +100,21 @@ function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps
   siniestrosRef.current = siniestros;
 
   const [form, setForm] = useState(emptyFormState);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Solo al abrir / cambiar modo de edición: si incluimos `siniestros` aquí, cada evento en tiempo real
   // resetea el formulario y oculta campos condicionales (ej. monto de franquicia).
   useEffect(() => {
     if (!open) {
       setForm(emptyFormState());
+      setPendingFiles([]);
+      setIsSaving(false);
       return;
     }
     if (!editingId) {
       setForm(emptyFormState());
+      setPendingFiles([]);
       return;
     }
     const found = siniestrosRef.current.find((x) => x.id === editingId);
@@ -119,11 +136,45 @@ function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps
   const cleasPreview = ciaTrimmed ? isCleas(form.cia) : null;
 
   function handleCancel() {
+    if (isSaving) {
+      return;
+    }
     onClose();
   }
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  function filePreviewUrl(file: File): string {
+    return URL.createObjectURL(file);
+  }
+
+  function handlePickFiles(event: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+    if (files.length === 0) return;
+    const accepted = files.filter(
+      (f) =>
+        f.type === "image/jpeg" ||
+        f.type === "image/png" ||
+        f.type === "image/webp" ||
+        f.type === "application/pdf",
+    );
+    const rejected = files.length - accepted.length;
+    if (rejected > 0) {
+      showToast("Algunos archivos no son validos. Solo JPG, PNG, WEBP o PDF.", "warn");
+    }
+    if (accepted.length > 0) {
+      setPendingFiles((prev) => [...prev, ...accepted]);
+    }
+    event.target.value = "";
+  }
+
+  function handleRemovePendingFile(index: number) {
+    setPendingFiles((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (isSaving) {
+      return;
+    }
     const inspectorOk = form.inspector.trim();
     const nombreOk = form.nombre.trim();
     const apellidoOk = form.apellido.trim();
@@ -167,12 +218,31 @@ function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps
       monto_franquicia: montoFranquiciaParsed,
     };
 
+    setIsSaving(true);
     if (editingId) {
       updateSiniestro(editingId, payload);
+      setIsSaving(false);
+      onClose();
     } else {
-      addSiniestro(payload);
+      const created = await addSiniestro(payload);
+      if (!created?.id) {
+        setIsSaving(false);
+        showToast("No se pudo crear el siniestro.", "warn");
+        return;
+      }
+      if (pendingFiles.length > 0) {
+        try {
+          for (const file of pendingFiles) {
+            await uploadArchivo(file, created.id, null);
+          }
+        } catch (error) {
+          console.error("Error subiendo archivos del siniestro nuevo:", error);
+          showToast("El siniestro se guardo, pero algunos archivos no se pudieron subir.", "warn");
+        }
+      }
+      setIsSaving(false);
+      onClose();
     }
-    onClose();
   }
 
   return (
@@ -182,11 +252,11 @@ function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps
       title={editingId ? "Editar siniestro" : "Nuevo siniestro"}
       footer={
         <div className="flex items-center justify-end gap-2">
-          <Button variant="outline" type="button" onClick={handleCancel}>
+          <Button variant="outline" type="button" onClick={handleCancel} disabled={isSaving}>
             Cancelar
           </Button>
-          <Button variant="primary" type="submit" form={FORM_ID}>
-            Guardar siniestro
+          <Button variant="primary" type="submit" form={FORM_ID} disabled={isSaving}>
+            {isSaving ? "Guardando..." : "Guardar siniestro"}
           </Button>
         </div>
       }
@@ -364,6 +434,76 @@ function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps
               />
             </div>
           ) : null}
+        </div>
+
+        <div>
+          <SectionLabel>ARCHIVOS ADJUNTOS</SectionLabel>
+          {!editingId ? (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm text-[#6b6860]">Se subiran al guardar el siniestro.</p>
+                <label className="inline-flex cursor-pointer items-center rounded-lg border border-[#d0cdc7] bg-white px-3 py-1.5 text-sm font-medium text-[#6b6860] transition hover:bg-[#f5f4f1] hover:text-[#1a1916]">
+                  Subir archivo
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,application/pdf"
+                    multiple
+                    className="hidden"
+                    onChange={handlePickFiles}
+                    disabled={isSaving}
+                  />
+                </label>
+              </div>
+
+              {isSaving && pendingFiles.length > 0 ? (
+                <p className="text-xs text-[#6b6860]">Subiendo archivos...</p>
+              ) : null}
+
+              {pendingFiles.length === 0 ? (
+                <p className="text-sm text-[#6b6860]">Sin archivos seleccionados</p>
+              ) : (
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+                  {pendingFiles.map((file, index) => {
+                    const isPdf = file.type === "application/pdf";
+                    const previewUrl = !isPdf ? filePreviewUrl(file) : "";
+                    return (
+                      <article
+                        key={`${file.name}-${file.size}-${index}`}
+                        className="relative overflow-hidden rounded-lg border border-[#e2e0db] bg-white"
+                      >
+                        <button
+                          type="button"
+                          className="absolute right-2 top-2 z-10 inline-flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-sm text-white transition hover:bg-black/80"
+                          aria-label="Quitar archivo"
+                          onClick={() => handleRemovePendingFile(index)}
+                          disabled={isSaving}
+                        >
+                          ×
+                        </button>
+                        {isPdf ? (
+                          <div className="flex h-[120px] w-full flex-col items-center justify-center gap-2 bg-[#f5f4f1] px-3">
+                            <PdfIcon />
+                            <p className="line-clamp-2 text-center text-xs font-medium text-[#1a1916]">
+                              {file.name}
+                            </p>
+                          </div>
+                        ) : (
+                          <img
+                            src={previewUrl}
+                            alt={file.name}
+                            className="h-[120px] w-full object-cover"
+                            onLoad={() => URL.revokeObjectURL(previewUrl)}
+                          />
+                        )}
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ) : (
+            <ArchivosSection siniestroId={editingId} reclamoId={null} />
+          )}
         </div>
       </form>
     </Modal>

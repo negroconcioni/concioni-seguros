@@ -99,7 +99,7 @@ type SiniestrosContextValue = {
   siniestros: Siniestro[];
   isLoading: boolean;
   isOnline: boolean;
-  addSiniestro: (data: Omit<Siniestro, "id" | "created" | "emailSent">) => void;
+  addSiniestro: (data: Omit<Siniestro, "id" | "created" | "emailSent">) => Promise<Siniestro | null>;
   updateSiniestro: (id: string, data: Partial<Siniestro>) => void;
   deleteSiniestro: (id: string) => void;
   config: Config;
@@ -211,32 +211,38 @@ export function SiniestrosProvider({ children }: { children: ReactNode }) {
     window.localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
   }, [config]);
 
-  const addSiniestro = useCallback((data: Omit<Siniestro, "id" | "created" | "emailSent">) => {
-    void (async () => {
+  const addSiniestro = useCallback(
+    async (data: Omit<Siniestro, "id" | "created" | "emailSent">): Promise<Siniestro | null> => {
       beginOp();
-      const nuevo: Siniestro = {
-        ...data,
-        id: makeId(),
-        created: new Date().toISOString(),
-        emailSent: false,
-      };
-      const payload = siniestroToDbInsert(nuevo);
-      const { data: inserted, error } = await supabase.from("siniestros").insert([payload]).select();
+      try {
+        const nuevo: Siniestro = {
+          ...data,
+          id: makeId(),
+          created: new Date().toISOString(),
+          emailSent: false,
+        };
+        const payload = siniestroToDbInsert(nuevo);
+        const { data: inserted, error } = await supabase.from("siniestros").insert([payload]).select();
 
-      if (error) {
-        console.error(error);
-        showToast("Error al guardar los datos. Verificar conexión.", "warn");
+        if (error) {
+          console.error(error);
+          showToast("Error al guardar los datos. Verificar conexión.", "warn");
+          return null;
+        }
+
+        const row = inserted?.[0];
+        if (!row) {
+          return null;
+        }
+        const created = rowToSiniestro(row as Record<string, unknown>);
+        setSiniestros((prev) => [created, ...prev]);
+        return created;
+      } finally {
         endOp();
-        return;
       }
-
-      const row = inserted?.[0];
-      if (row) {
-        setSiniestros((prev) => [rowToSiniestro(row as Record<string, unknown>), ...prev]);
-      }
-      endOp();
-    })();
-  }, [showToast]);
+    },
+    [showToast],
+  );
 
   const updateSiniestro = useCallback((id: string, data: Partial<Siniestro>) => {
     void (async () => {
