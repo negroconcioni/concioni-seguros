@@ -1,1 +1,1 @@
-export type ActiveView = "dashboard" | "siniestros" | "alertas";
+export type ActiveView = "dashboard" | "siniestros" | "alertas" | "reclamos";

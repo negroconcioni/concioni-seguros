@@ -11,12 +11,14 @@ import { checkAndSendEmails } from "./utils/email";
 import { exportToExcel } from "./utils/excel";
 import Alertas from "./views/Alertas";
 import Dashboard from "./views/Dashboard";
+import Reclamos from "./views/Reclamos";
 import Siniestros from "./views/Siniestros";
 
 const viewTitles: Record<ActiveView, string> = {
   dashboard: "Dashboard",
   siniestros: "Siniestros",
   alertas: "Alertas",
+  reclamos: "Reclamos",
 };
 
 function deliveryAlertCount(siniestros: { fentrega: string }[]) {
@@ -178,6 +180,9 @@ function App() {
               ) : null}
               {activeView === "alertas" ? (
                 <Alertas onOpenSiniestroDetail={openSiniestroDetail} />
+              ) : null}
+              {activeView === "reclamos" ? (
+                <Reclamos onOpenSiniestroDetail={openSiniestroDetail} />
               ) : null}
             </main>
           </div>
