@@ -66,6 +66,11 @@ function entregaDotClass(s: Siniestro): string {
   return "bg-[#2e7d52]";
 }
 
+function requiresRepuestos(s: Siniestro): boolean {
+  const raw = (s as Siniestro & { requiere_repuestos?: boolean }).requiere_repuestos;
+  return raw !== false;
+}
+
 function matchesFilter(s: Siniestro, filter: FilterKey): boolean {
   if (filter === "todos") return true;
   if (filter === "cleas") return s.cleas;
@@ -165,6 +170,9 @@ function Siniestros({ onOpenSiniestroDetail, onOpenSiniestroEdit }: SiniestrosPr
   const [query, setQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<FilterKey>("todos");
   const [siniestrosConArchivos, setSiniestrosConArchivos] = useState<Set<string>>(new Set());
+  const [reclamoTerceroBySiniestro, setReclamoTerceroBySiniestro] = useState<
+    Map<string, "pendiente" | "hecho">
+  >(new Map());
 
   useEffect(() => {
     let cancelled = false;
@@ -189,6 +197,43 @@ function Siniestros({ onOpenSiniestroDetail, onOpenSiniestroEdit }: SiniestrosPr
       }
     };
     void loadArchivosBySiniestro();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadReclamosTerceros = async () => {
+      try {
+        const { data, error } = await supabase.from("reclamos_terceros").select("siniestro_id, estado");
+        if (error) {
+          throw error;
+        }
+        if (cancelled) return;
+        const next = new Map<string, "pendiente" | "hecho">();
+        for (const row of data ?? []) {
+          const id = String((row as { siniestro_id?: unknown }).siniestro_id ?? "");
+          const estadoRaw = String((row as { estado?: unknown }).estado ?? "");
+          if (!id) continue;
+          const estado: "pendiente" | "hecho" = estadoRaw === "hecho" ? "hecho" : "pendiente";
+          const prev = next.get(id);
+          if (!prev || prev === "hecho") {
+            next.set(id, estado);
+          }
+          if (prev === "pendiente") {
+            next.set(id, "pendiente");
+          }
+        }
+        setReclamoTerceroBySiniestro(next);
+      } catch (error) {
+        if (!cancelled) {
+          console.error("Error cargando reclamos de terceros:", error);
+          setReclamoTerceroBySiniestro(new Map());
+        }
+      }
+    };
+    void loadReclamosTerceros();
     return () => {
       cancelled = true;
     };
@@ -277,9 +322,10 @@ function Siniestros({ onOpenSiniestroDetail, onOpenSiniestroEdit }: SiniestrosPr
               <th className={thDesktopOnly}>Daño</th>
               <th className="px-3 py-3">Taller</th>
               <th className={thDesktopOnly}>Pedido</th>
-              <th className="px-3 py-3">Entrega est.</th>
+              <th className="px-3 py-3">Entrega rep.</th>
               <th className={thDesktopOnly}>Proveedor</th>
-              <th className={thDesktopOnly}>Reclamo</th>
+              <th className="px-3 py-3">Reclamo rep.</th>
+              <th className="px-3 py-3">Reclamo terc.</th>
               <th className={thDesktopOnly}>Cia. Terceros</th>
               <th className="px-3 py-3">CLEAS</th>
               <th className="px-3 py-3">Franquicia</th>
@@ -289,7 +335,7 @@ function Siniestros({ onOpenSiniestroDetail, onOpenSiniestroEdit }: SiniestrosPr
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={13} className="px-4 py-8 text-center text-[#6b6860]">
+                <td colSpan={14} className="px-4 py-8 text-center text-[#6b6860]">
                   No hay resultados para el filtro actual.
                 </td>
               </tr>
@@ -303,14 +349,31 @@ function Siniestros({ onOpenSiniestroDetail, onOpenSiniestroEdit }: SiniestrosPr
                   <td className="px-3 py-3">{s.taller}</td>
                   <td className={tdDesktopOnly}>{formatDate(s.fpedido)}</td>
                   <td className="px-3 py-3">
-                    <span className="inline-flex items-center gap-2">
-                      <span className={`h-2 w-2 rounded-full ${entregaDotClass(s)}`} aria-hidden />
-                      {formatDate(s.fentrega)}
-                    </span>
+                    {requiresRepuestos(s) ? (
+                      <span className="inline-flex items-center gap-2">
+                        <span className={`h-2 w-2 rounded-full ${entregaDotClass(s)}`} aria-hidden />
+                        {formatDate(s.fentrega)}
+                      </span>
+                    ) : (
+                      <span className="text-[#6b6860]">No requiere</span>
+                    )}
                   </td>
                   <td className={tdDesktopOnly}>{s.proveedor}</td>
-                  <td className={tdDesktopOnly}>
-                    <Badge variant={s.reclamo ? "red" : "neutral"}>{s.reclamo ? "SI" : "NO"}</Badge>
+                  <td className="px-3 py-3">
+                    {requiresRepuestos(s) ? (
+                      <Badge variant={s.reclamo ? "green" : "neutral"}>{s.reclamo ? "SI" : "NO"}</Badge>
+                    ) : (
+                      <span className="text-[#6b6860]">—</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-3">
+                    {reclamoTerceroBySiniestro.get(s.id) === "pendiente" ? (
+                      <Badge variant="red">Pendiente</Badge>
+                    ) : reclamoTerceroBySiniestro.get(s.id) === "hecho" ? (
+                      <Badge variant="green">Hecho</Badge>
+                    ) : (
+                      <span className="text-[#6b6860]">—</span>
+                    )}
                   </td>
                   <td className={tdDesktopOnly}>{s.cia}</td>
                   <td className="px-3 py-3">
