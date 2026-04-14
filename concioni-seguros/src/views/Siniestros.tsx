@@ -1,11 +1,19 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Badge from "../components/ui/Badge";
 import Button from "../components/ui/Button";
+import { supabase } from "../lib/supabase";
 import { useSiniestros } from "../store/useSiniestros";
 import type { Siniestro } from "../types";
 import { formatDate, getDiffDays } from "../utils/date";
 
-type FilterKey = "todos" | "cleas" | "reclamo" | "vencidos" | "franquicia";
+type FilterKey =
+  | "todos"
+  | "cleas"
+  | "reclamo"
+  | "vencidos"
+  | "franquicia"
+  | "con_archivos"
+  | "sin_archivos";
 
 type SiniestrosProps = {
   onOpenSiniestroDetail: (id: string) => void;
@@ -18,6 +26,8 @@ const filters: { key: FilterKey; label: string }[] = [
   { key: "reclamo", label: "Con reclamo" },
   { key: "vencidos", label: "Vencidos" },
   { key: "franquicia", label: "Franquicia" },
+  { key: "con_archivos", label: "Con archivos" },
+  { key: "sin_archivos", label: "Sin archivos" },
 ];
 
 function IconView() {
@@ -154,14 +164,47 @@ function Siniestros({ onOpenSiniestroDetail, onOpenSiniestroEdit }: SiniestrosPr
   const { siniestros, deleteSiniestro } = useSiniestros();
   const [query, setQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<FilterKey>("todos");
+  const [siniestrosConArchivos, setSiniestrosConArchivos] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadArchivosBySiniestro = async () => {
+      try {
+        const { data, error } = await supabase.from("archivos").select("siniestro_id");
+        if (error) {
+          throw error;
+        }
+        if (cancelled) return;
+        const next = new Set<string>();
+        for (const row of data ?? []) {
+          const id = String((row as { siniestro_id?: unknown }).siniestro_id ?? "");
+          if (id) next.add(id);
+        }
+        setSiniestrosConArchivos(next);
+      } catch (error) {
+        if (!cancelled) {
+          console.error("Error cargando archivos por siniestro:", error);
+          setSiniestrosConArchivos(new Set());
+        }
+      }
+    };
+    void loadArchivosBySiniestro();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filtered = useMemo(
     () =>
       siniestros
-        .filter((s) => matchesFilter(s, activeFilter))
+        .filter((s) => {
+          if (activeFilter === "con_archivos") return siniestrosConArchivos.has(s.id);
+          if (activeFilter === "sin_archivos") return !siniestrosConArchivos.has(s.id);
+          return matchesFilter(s, activeFilter);
+        })
         .filter((s) => matchesSearch(s, query))
         .sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime()),
-    [siniestros, activeFilter, query],
+    [siniestros, activeFilter, query, siniestrosConArchivos],
   );
 
   function handleDelete(s: Siniestro) {

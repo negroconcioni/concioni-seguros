@@ -4,9 +4,10 @@ import Button from "./ui/Button";
 import Modal from "./ui/Modal";
 import Toggle from "./ui/Toggle";
 import { uploadArchivo } from "../store/useArchivos";
+import { addReclamo } from "../store/useReclamos";
 import { useToast } from "./ui/Toast";
 import { useSiniestros } from "../store/useSiniestros";
-import type { Siniestro } from "../types";
+import type { Siniestro, TipoReclamo } from "../types";
 import { isCleas } from "../utils/cleas";
 
 const INSPECTORS = [
@@ -74,6 +75,48 @@ function emptyFormState() {
   };
 }
 
+type NewReclamoForm = {
+  estado: "pendiente" | "hecho";
+  lugar: string;
+  fecha_siniestro: string;
+  hora_siniestro: string;
+  direccion: string;
+  descripcion: string;
+  tipo_reclamo: TipoReclamo[];
+  dominio_asegurado: string;
+  dominio_tercero: string;
+  documento_asegurado: string;
+  documento_tercero: string;
+  responsable_contacto: string;
+  telefono_contacto: string;
+  email_contacto: string;
+};
+
+const TIPO_RECLAMO_OPTIONS: { value: TipoReclamo; label: string }[] = [
+  { value: "daño vehicular", label: "Daño vehicular" },
+  { value: "daños materiales", label: "Daños a cosas materiales" },
+  { value: "lesiones", label: "Lesiones" },
+];
+
+function emptyReclamoForm(): NewReclamoForm {
+  return {
+    estado: "pendiente",
+    lugar: "",
+    fecha_siniestro: "",
+    hora_siniestro: "",
+    direccion: "",
+    descripcion: "",
+    tipo_reclamo: [],
+    dominio_asegurado: "",
+    dominio_tercero: "",
+    documento_asegurado: "",
+    documento_tercero: "",
+    responsable_contacto: "",
+    telefono_contacto: "",
+    email_contacto: "",
+  };
+}
+
 function loadFromSiniestro(s: Siniestro) {
   return {
     inspector: s.inspector,
@@ -102,6 +145,8 @@ function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps
   const [form, setForm] = useState(emptyFormState);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [addReclamoInline, setAddReclamoInline] = useState(false);
+  const [reclamoForm, setReclamoForm] = useState<NewReclamoForm>(emptyReclamoForm);
 
   // Solo al abrir / cambiar modo de edición: si incluimos `siniestros` aquí, cada evento en tiempo real
   // resetea el formulario y oculta campos condicionales (ej. monto de franquicia).
@@ -110,11 +155,15 @@ function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps
       setForm(emptyFormState());
       setPendingFiles([]);
       setIsSaving(false);
+      setAddReclamoInline(false);
+      setReclamoForm(emptyReclamoForm());
       return;
     }
     if (!editingId) {
       setForm(emptyFormState());
       setPendingFiles([]);
+      setAddReclamoInline(false);
+      setReclamoForm(emptyReclamoForm());
       return;
     }
     const found = siniestrosRef.current.find((x) => x.id === editingId);
@@ -168,6 +217,16 @@ function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps
 
   function handleRemovePendingFile(index: number) {
     setPendingFiles((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function toggleTipoReclamo(value: TipoReclamo) {
+    setReclamoForm((prev) => {
+      const exists = prev.tipo_reclamo.includes(value);
+      return {
+        ...prev,
+        tipo_reclamo: exists ? prev.tipo_reclamo.filter((x) => x !== value) : [...prev.tipo_reclamo, value],
+      };
+    });
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -229,6 +288,30 @@ function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps
         setIsSaving(false);
         showToast("No se pudo crear el siniestro.", "warn");
         return;
+      }
+      if (addReclamoInline) {
+        try {
+          await addReclamo({
+            siniestro_id: created.id,
+            estado: reclamoForm.estado,
+            lugar: reclamoForm.lugar.trim(),
+            fecha_siniestro: reclamoForm.fecha_siniestro,
+            hora_siniestro: reclamoForm.hora_siniestro,
+            direccion: reclamoForm.direccion.trim(),
+            descripcion: reclamoForm.descripcion.trim(),
+            tipo_reclamo: reclamoForm.tipo_reclamo,
+            dominio_asegurado: reclamoForm.dominio_asegurado.trim(),
+            dominio_tercero: reclamoForm.dominio_tercero.trim(),
+            documento_asegurado: reclamoForm.documento_asegurado.trim(),
+            documento_tercero: reclamoForm.documento_tercero.trim(),
+            responsable_contacto: reclamoForm.responsable_contacto.trim(),
+            telefono_contacto: reclamoForm.telefono_contacto.trim(),
+            email_contacto: reclamoForm.email_contacto.trim(),
+          });
+        } catch (error) {
+          console.error("Error creando reclamo contra terceros:", error);
+          showToast("El siniestro se guardo, pero el reclamo no se pudo crear.", "warn");
+        }
       }
       if (pendingFiles.length > 0) {
         try {
@@ -435,6 +518,174 @@ function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps
             </div>
           ) : null}
         </div>
+
+        {!editingId ? (
+          <div className="space-y-3">
+            <SectionLabel>RECLAMO CONTRA TERCEROS</SectionLabel>
+            <Toggle
+              checked={addReclamoInline}
+              onChange={(next) => {
+                setAddReclamoInline(next);
+                if (!next) {
+                  setReclamoForm(emptyReclamoForm());
+                }
+              }}
+              label="¿Agregar reclamo contra terceros?"
+            />
+
+            {addReclamoInline ? (
+              <div className="space-y-5 rounded-xl border border-[#e2e0db] bg-[#faf9f8] p-4">
+                <section>
+                  <h5 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-[#a8a59f]">Estado</h5>
+                  <div className="inline-flex rounded-lg border border-[#d0cdc7] p-1">
+                    <button
+                      type="button"
+                      className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
+                        reclamoForm.estado === "pendiente"
+                          ? "bg-[#c0392b] text-white"
+                          : "text-[#6b6860] hover:bg-[#f5f4f1]"
+                      }`}
+                      onClick={() => setReclamoForm((prev) => ({ ...prev, estado: "pendiente" }))}
+                    >
+                      Pendiente
+                    </button>
+                    <button
+                      type="button"
+                      className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
+                        reclamoForm.estado === "hecho"
+                          ? "bg-[#2e7d52] text-white"
+                          : "text-[#6b6860] hover:bg-[#f5f4f1]"
+                      }`}
+                      onClick={() => setReclamoForm((prev) => ({ ...prev, estado: "hecho" }))}
+                    >
+                      Hecho
+                    </button>
+                  </div>
+                </section>
+
+                <section className="space-y-3">
+                  <h5 className="text-[11px] font-semibold uppercase tracking-wide text-[#a8a59f]">Datos del siniestro</h5>
+                  <input
+                    value={reclamoForm.lugar}
+                    onChange={(e) => setReclamoForm((prev) => ({ ...prev, lugar: e.target.value }))}
+                    placeholder="Lugar del siniestro"
+                    className="w-full rounded-lg border border-[#d0cdc7] px-3 py-2 text-sm outline-none transition"
+                  />
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <input
+                      type="date"
+                      value={reclamoForm.fecha_siniestro}
+                      onChange={(e) => setReclamoForm((prev) => ({ ...prev, fecha_siniestro: e.target.value }))}
+                      className="w-full rounded-lg border border-[#d0cdc7] px-3 py-2 text-sm outline-none transition"
+                    />
+                    <input
+                      type="time"
+                      value={reclamoForm.hora_siniestro}
+                      onChange={(e) => setReclamoForm((prev) => ({ ...prev, hora_siniestro: e.target.value }))}
+                      className="w-full rounded-lg border border-[#d0cdc7] px-3 py-2 text-sm outline-none transition"
+                    />
+                  </div>
+                  <input
+                    value={reclamoForm.direccion}
+                    onChange={(e) => setReclamoForm((prev) => ({ ...prev, direccion: e.target.value }))}
+                    placeholder="Direccion del siniestro"
+                    className="w-full rounded-lg border border-[#d0cdc7] px-3 py-2 text-sm outline-none transition"
+                  />
+                  <textarea
+                    rows={3}
+                    value={reclamoForm.descripcion}
+                    onChange={(e) => setReclamoForm((prev) => ({ ...prev, descripcion: e.target.value }))}
+                    placeholder="Descripcion del siniestro"
+                    className="w-full resize-y rounded-lg border border-[#d0cdc7] px-3 py-2 text-sm outline-none transition"
+                  />
+                </section>
+
+                <section className="space-y-2">
+                  <h5 className="text-[11px] font-semibold uppercase tracking-wide text-[#a8a59f]">Tipo de reclamo</h5>
+                  {TIPO_RECLAMO_OPTIONS.map((item) => (
+                    <label key={item.value} className="flex items-center gap-2 text-sm text-[#1a1916]">
+                      <input
+                        type="checkbox"
+                        checked={reclamoForm.tipo_reclamo.includes(item.value)}
+                        onChange={() => toggleTipoReclamo(item.value)}
+                      />
+                      {item.label}
+                    </label>
+                  ))}
+                </section>
+
+                <section className="space-y-3">
+                  <h5 className="text-[11px] font-semibold uppercase tracking-wide text-[#a8a59f]">Vehiculos</h5>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <input
+                      value={reclamoForm.dominio_asegurado}
+                      onChange={(e) => setReclamoForm((prev) => ({ ...prev, dominio_asegurado: e.target.value }))}
+                      placeholder="Dominio vehiculo asegurado"
+                      className="w-full rounded-lg border border-[#d0cdc7] px-3 py-2 text-sm outline-none transition"
+                    />
+                    <input
+                      value={reclamoForm.dominio_tercero}
+                      onChange={(e) => setReclamoForm((prev) => ({ ...prev, dominio_tercero: e.target.value }))}
+                      placeholder="Dominio vehiculo tercero"
+                      className="w-full rounded-lg border border-[#d0cdc7] px-3 py-2 text-sm outline-none transition"
+                    />
+                  </div>
+                </section>
+
+                <section className="space-y-3">
+                  <h5 className="text-[11px] font-semibold uppercase tracking-wide text-[#a8a59f]">Documentos</h5>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <input
+                      value={reclamoForm.documento_asegurado}
+                      onChange={(e) => setReclamoForm((prev) => ({ ...prev, documento_asegurado: e.target.value }))}
+                      placeholder="Nro. documento asegurado"
+                      className="w-full rounded-lg border border-[#d0cdc7] px-3 py-2 text-sm outline-none transition"
+                    />
+                    <input
+                      value={reclamoForm.documento_tercero}
+                      onChange={(e) => setReclamoForm((prev) => ({ ...prev, documento_tercero: e.target.value }))}
+                      placeholder="Nro. documento tercero"
+                      className="w-full rounded-lg border border-[#d0cdc7] px-3 py-2 text-sm outline-none transition"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-[#6b6860]">Nro. siniestro</label>
+                    <input
+                      value={form.nro}
+                      readOnly
+                      className="w-full rounded-lg border border-[#d0cdc7] bg-[#f5f4f1] px-3 py-2 text-sm text-[#6b6860] outline-none"
+                    />
+                  </div>
+                </section>
+
+                <section className="space-y-3">
+                  <h5 className="text-[11px] font-semibold uppercase tracking-wide text-[#a8a59f]">Contacto</h5>
+                  <input
+                    value={reclamoForm.responsable_contacto}
+                    onChange={(e) => setReclamoForm((prev) => ({ ...prev, responsable_contacto: e.target.value }))}
+                    placeholder="Responsable de contacto"
+                    className="w-full rounded-lg border border-[#d0cdc7] px-3 py-2 text-sm outline-none transition"
+                  />
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <input
+                      value={reclamoForm.telefono_contacto}
+                      onChange={(e) => setReclamoForm((prev) => ({ ...prev, telefono_contacto: e.target.value }))}
+                      placeholder="Telefono"
+                      className="w-full rounded-lg border border-[#d0cdc7] px-3 py-2 text-sm outline-none transition"
+                    />
+                    <input
+                      type="email"
+                      value={reclamoForm.email_contacto}
+                      onChange={(e) => setReclamoForm((prev) => ({ ...prev, email_contacto: e.target.value }))}
+                      placeholder="Email"
+                      className="w-full rounded-lg border border-[#d0cdc7] px-3 py-2 text-sm outline-none transition"
+                    />
+                  </div>
+                </section>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         <div>
           <SectionLabel>ARCHIVOS ADJUNTOS</SectionLabel>
