@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { deleteArchivo, fetchArchivos, uploadArchivo } from "../store/useArchivos";
 import type { Archivo } from "../types";
-import Button from "./ui/Button";
 import { useToast } from "./ui/Toast";
 
 type ArchivosSectionProps = {
@@ -33,6 +32,7 @@ function ArchivosSection({ siniestroId, reclamoId }: ArchivosSectionProps) {
   const [archivos, setArchivos] = useState<Archivo[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [dragging, setDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const { showToast } = useToast();
 
@@ -70,24 +70,47 @@ function ArchivosSection({ siniestroId, reclamoId }: ArchivosSectionProps) {
     [archivos, reclamoId],
   );
 
-  async function handleChooseFile(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) {
+  async function handleFiles(files: File[]) {
+    if (files.length === 0) {
+      return;
+    }
+
+    const accepted = files.filter(
+      (f) =>
+        f.type === "image/jpeg" ||
+        f.type === "image/png" ||
+        f.type === "image/webp" ||
+        f.type === "application/pdf",
+    );
+    const rejected = files.length - accepted.length;
+    if (rejected > 0) {
+      showToast("Algunos archivos no son validos. Solo JPG, PNG, WEBP o PDF.", "warn");
+    }
+    if (accepted.length === 0) {
       return;
     }
 
     setIsUploading(true);
     try {
-      const created = await uploadArchivo(file, siniestroId, reclamoId);
-      setArchivos((prev) => [created, ...prev]);
+      const uploaded: Archivo[] = [];
+      for (const file of accepted) {
+        const created = await uploadArchivo(file, siniestroId, reclamoId);
+        uploaded.push(created);
+      }
+      setArchivos((prev) => [...uploaded.reverse(), ...prev]);
       showToast("Archivo subido correctamente.");
     } catch (error) {
       console.error("Error subiendo archivo:", error);
       showToast("No se pudo subir el archivo.", "warn");
     } finally {
       setIsUploading(false);
-      event.target.value = "";
     }
+  }
+
+  async function handleChooseFile(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+    await handleFiles(files);
+    event.target.value = "";
   }
 
   async function handleDelete(archivo: Archivo) {
@@ -112,24 +135,40 @@ function ArchivosSection({ siniestroId, reclamoId }: ArchivosSectionProps) {
         <h4 className="text-[11px] font-semibold uppercase tracking-wide text-[#a8a59f]">Archivos</h4>
         <div className="flex items-center gap-2">
           {isUploading ? <span className="text-xs text-[#6b6860]">Subiendo...</span> : null}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => inputRef.current?.click()}
-            disabled={isUploading}
-          >
-            Subir archivo
-          </Button>
-          <input
-            ref={inputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp,application/pdf"
-            className="hidden"
-            onChange={handleChooseFile}
-          />
         </div>
       </div>
+      <div
+        className={`cursor-pointer rounded-[12px] border-2 border-dashed p-8 text-center transition ${
+          dragging
+            ? "border-[#1d4ed8] bg-[#eff4ff]"
+            : "border-[#d0cdc7] bg-[#f5f4f1]"
+        }`}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragging(true);
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragging(false);
+          const files = Array.from(e.dataTransfer.files);
+          void handleFiles(files);
+        }}
+        onClick={() => inputRef.current?.click()}
+      >
+        <p className="text-sm font-medium text-[#1a1916]">
+          {dragging ? "Soltá para subir" : "Arrastrá archivos acá o hacé click para seleccionar"}
+        </p>
+        <p className="mt-1 text-xs text-[#6b6860]">JPG, PNG, WEBP, PDF</p>
+      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,application/pdf"
+        multiple
+        style={{ display: "none" }}
+        onChange={handleChooseFile}
+      />
 
       {isLoading ? (
         <p className="text-sm text-[#6b6860]">Cargando archivos...</p>

@@ -318,6 +318,7 @@ function Siniestros({ onOpenSiniestroDetail, onOpenSiniestroEdit }: SiniestrosPr
             <tr className="border-b border-[#e2e0db] bg-[#f5f4f1] text-xs font-semibold uppercase tracking-wide text-[#6b6860]">
               <th className="px-3 py-3">Inspector</th>
               <th className="px-3 py-3">Asegurado</th>
+              <th className="px-3 py-3">Patente</th>
               <th className="px-3 py-3">Nro.</th>
               <th className={thDesktopOnly}>Daño</th>
               <th className="px-3 py-3">Taller</th>
@@ -335,7 +336,7 @@ function Siniestros({ onOpenSiniestroDetail, onOpenSiniestroEdit }: SiniestrosPr
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={14} className="px-4 py-8 text-center text-[#6b6860]">
+                <td colSpan={15} className="px-4 py-8 text-center text-[#6b6860]">
                   No hay resultados para el filtro actual.
                 </td>
               </tr>
@@ -344,6 +345,7 @@ function Siniestros({ onOpenSiniestroDetail, onOpenSiniestroEdit }: SiniestrosPr
                 <tr key={s.id} className="border-b border-[#eeecea] last:border-0 hover:bg-[#faf9f8]">
                   <td className="px-3 py-3">{s.inspector}</td>
                   <td className="px-3 py-3">{`${s.nombre} ${s.apellido}`.trim()}</td>
+                  <td className="px-3 py-3">{s.patente || "—"}</td>
                   <td className="px-3 py-3 font-medium">{s.nro}</td>
                   <td className={tdDesktopOnly}>{s.danio}</td>
                   <td className="px-3 py-3">{s.taller}</td>

@@ -2,12 +2,12 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import ArchivosSection from "./ArchivosSection";
 import Button from "./ui/Button";
 import Modal from "./ui/Modal";
+import ReclamoTerceroModal from "./ReclamoTerceroModal";
 import Toggle from "./ui/Toggle";
 import { uploadArchivo } from "../store/useArchivos";
-import { addReclamo } from "../store/useReclamos";
 import { useToast } from "./ui/Toast";
 import { useSiniestros } from "../store/useSiniestros";
-import type { Siniestro, TipoReclamo } from "../types";
+import type { Siniestro } from "../types";
 import { isCleas } from "../utils/cleas";
 
 const INSPECTORS = [
@@ -62,6 +62,7 @@ function emptyFormState() {
     nombre: "",
     apellido: "",
     nro: "",
+    patente: "",
     danio: "",
     taller: "",
     fpedido: "",
@@ -75,54 +76,13 @@ function emptyFormState() {
   };
 }
 
-type NewReclamoForm = {
-  estado: "pendiente" | "hecho";
-  lugar: string;
-  fecha_siniestro: string;
-  hora_siniestro: string;
-  direccion: string;
-  descripcion: string;
-  tipo_reclamo: TipoReclamo[];
-  dominio_asegurado: string;
-  dominio_tercero: string;
-  documento_asegurado: string;
-  documento_tercero: string;
-  responsable_contacto: string;
-  telefono_contacto: string;
-  email_contacto: string;
-};
-
-const TIPO_RECLAMO_OPTIONS: { value: TipoReclamo; label: string }[] = [
-  { value: "daño vehicular", label: "Daño vehicular" },
-  { value: "daños materiales", label: "Daños a cosas materiales" },
-  { value: "lesiones", label: "Lesiones" },
-];
-
-function emptyReclamoForm(): NewReclamoForm {
-  return {
-    estado: "pendiente",
-    lugar: "",
-    fecha_siniestro: "",
-    hora_siniestro: "",
-    direccion: "",
-    descripcion: "",
-    tipo_reclamo: [],
-    dominio_asegurado: "",
-    dominio_tercero: "",
-    documento_asegurado: "",
-    documento_tercero: "",
-    responsable_contacto: "",
-    telefono_contacto: "",
-    email_contacto: "",
-  };
-}
-
 function loadFromSiniestro(s: Siniestro) {
   return {
     inspector: s.inspector,
     nombre: s.nombre,
     apellido: s.apellido,
     nro: s.nro,
+    patente: s.patente,
     danio: s.danio,
     taller: s.taller,
     fpedido: toDateInputValue(s.fpedido),
@@ -140,13 +100,16 @@ function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps
   const { siniestros, addSiniestro, updateSiniestro } = useSiniestros();
   const { showToast } = useToast();
   const siniestrosRef = useRef(siniestros);
+  const filesInputRef = useRef<HTMLInputElement | null>(null);
   siniestrosRef.current = siniestros;
 
   const [form, setForm] = useState(emptyFormState);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [isSaving, setIsSaving] = useState(false);
-  const [addReclamoInline, setAddReclamoInline] = useState(false);
-  const [reclamoForm, setReclamoForm] = useState<NewReclamoForm>(emptyReclamoForm);
+  const [draggingFiles, setDraggingFiles] = useState(false);
+  const [confirmReclamoOpen, setConfirmReclamoOpen] = useState(false);
+  const [reclamoModalOpen, setReclamoModalOpen] = useState(false);
+  const [reclamoTarget, setReclamoTarget] = useState<{ id: string; nro: string } | null>(null);
 
   // Solo al abrir / cambiar modo de edición: si incluimos `siniestros` aquí, cada evento en tiempo real
   // resetea el formulario y oculta campos condicionales (ej. monto de franquicia).
@@ -155,15 +118,11 @@ function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps
       setForm(emptyFormState());
       setPendingFiles([]);
       setIsSaving(false);
-      setAddReclamoInline(false);
-      setReclamoForm(emptyReclamoForm());
       return;
     }
     if (!editingId) {
       setForm(emptyFormState());
       setPendingFiles([]);
-      setAddReclamoInline(false);
-      setReclamoForm(emptyReclamoForm());
       return;
     }
     const found = siniestrosRef.current.find((x) => x.id === editingId);
@@ -195,8 +154,7 @@ function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps
     return URL.createObjectURL(file);
   }
 
-  function handlePickFiles(event: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(event.target.files ?? []);
+  function handleFiles(files: File[]) {
     if (files.length === 0) return;
     const accepted = files.filter(
       (f) =>
@@ -212,21 +170,16 @@ function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps
     if (accepted.length > 0) {
       setPendingFiles((prev) => [...prev, ...accepted]);
     }
+  }
+
+  function handlePickFiles(event: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+    handleFiles(files);
     event.target.value = "";
   }
 
   function handleRemovePendingFile(index: number) {
     setPendingFiles((prev) => prev.filter((_, i) => i !== index));
-  }
-
-  function toggleTipoReclamo(value: TipoReclamo) {
-    setReclamoForm((prev) => {
-      const exists = prev.tipo_reclamo.includes(value);
-      return {
-        ...prev,
-        tipo_reclamo: exists ? prev.tipo_reclamo.filter((x) => x !== value) : [...prev.tipo_reclamo, value],
-      };
-    });
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -264,6 +217,7 @@ function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps
       nombre: nombreOk,
       apellido: apellidoOk,
       nro: nroOk,
+      patente: form.patente.trim(),
       danio: form.danio.trim(),
       taller: form.taller.trim(),
       fpedido: form.fpedido,
@@ -289,30 +243,6 @@ function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps
         showToast("No se pudo crear el siniestro.", "warn");
         return;
       }
-      if (addReclamoInline) {
-        try {
-          await addReclamo({
-            siniestro_id: created.id,
-            estado: reclamoForm.estado,
-            lugar: reclamoForm.lugar.trim(),
-            fecha_siniestro: reclamoForm.fecha_siniestro,
-            hora_siniestro: reclamoForm.hora_siniestro,
-            direccion: reclamoForm.direccion.trim(),
-            descripcion: reclamoForm.descripcion.trim(),
-            tipo_reclamo: reclamoForm.tipo_reclamo,
-            dominio_asegurado: reclamoForm.dominio_asegurado.trim(),
-            dominio_tercero: reclamoForm.dominio_tercero.trim(),
-            documento_asegurado: reclamoForm.documento_asegurado.trim(),
-            documento_tercero: reclamoForm.documento_tercero.trim(),
-            responsable_contacto: reclamoForm.responsable_contacto.trim(),
-            telefono_contacto: reclamoForm.telefono_contacto.trim(),
-            email_contacto: reclamoForm.email_contacto.trim(),
-          });
-        } catch (error) {
-          console.error("Error creando reclamo contra terceros:", error);
-          showToast("El siniestro se guardo, pero el reclamo no se pudo crear.", "warn");
-        }
-      }
       if (pendingFiles.length > 0) {
         try {
           for (const file of pendingFiles) {
@@ -325,10 +255,13 @@ function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps
       }
       setIsSaving(false);
       onClose();
+      setReclamoTarget({ id: created.id, nro: created.nro });
+      setConfirmReclamoOpen(true);
     }
   }
 
   return (
+    <>
     <Modal
       open={open}
       onClose={onClose}
@@ -366,7 +299,7 @@ function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps
 
         <div>
           <SectionLabel>Datos del asegurado</SectionLabel>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
             <input
               required
               value={form.nombre}
@@ -386,6 +319,12 @@ function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps
               value={form.nro}
               onChange={(e) => setForm((f) => ({ ...f, nro: e.target.value }))}
               placeholder="Nro. Siniestro"
+              className="w-full rounded-lg border border-[#d0cdc7] px-3 py-2 text-sm outline-none transition"
+            />
+            <input
+              value={form.patente}
+              onChange={(e) => setForm((f) => ({ ...f, patente: e.target.value }))}
+              placeholder="ABC 123"
               className="w-full rounded-lg border border-[#d0cdc7] px-3 py-2 text-sm outline-none transition"
             />
           </div>
@@ -519,192 +458,48 @@ function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps
           ) : null}
         </div>
 
-        {!editingId ? (
-          <div className="space-y-3">
-            <SectionLabel>RECLAMO CONTRA TERCEROS</SectionLabel>
-            <Toggle
-              checked={addReclamoInline}
-              onChange={(next) => {
-                setAddReclamoInline(next);
-                if (!next) {
-                  setReclamoForm(emptyReclamoForm());
-                }
-              }}
-              label="¿Agregar reclamo contra terceros?"
-            />
-
-            {addReclamoInline ? (
-              <div className="space-y-5 rounded-xl border border-[#e2e0db] bg-[#faf9f8] p-4">
-                <section>
-                  <h5 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-[#a8a59f]">Estado</h5>
-                  <div className="inline-flex rounded-lg border border-[#d0cdc7] p-1">
-                    <button
-                      type="button"
-                      className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
-                        reclamoForm.estado === "pendiente"
-                          ? "bg-[#c0392b] text-white"
-                          : "text-[#6b6860] hover:bg-[#f5f4f1]"
-                      }`}
-                      onClick={() => setReclamoForm((prev) => ({ ...prev, estado: "pendiente" }))}
-                    >
-                      Pendiente
-                    </button>
-                    <button
-                      type="button"
-                      className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
-                        reclamoForm.estado === "hecho"
-                          ? "bg-[#2e7d52] text-white"
-                          : "text-[#6b6860] hover:bg-[#f5f4f1]"
-                      }`}
-                      onClick={() => setReclamoForm((prev) => ({ ...prev, estado: "hecho" }))}
-                    >
-                      Hecho
-                    </button>
-                  </div>
-                </section>
-
-                <section className="space-y-3">
-                  <h5 className="text-[11px] font-semibold uppercase tracking-wide text-[#a8a59f]">Datos del siniestro</h5>
-                  <input
-                    value={reclamoForm.lugar}
-                    onChange={(e) => setReclamoForm((prev) => ({ ...prev, lugar: e.target.value }))}
-                    placeholder="Lugar del siniestro"
-                    className="w-full rounded-lg border border-[#d0cdc7] px-3 py-2 text-sm outline-none transition"
-                  />
-                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                    <input
-                      type="date"
-                      value={reclamoForm.fecha_siniestro}
-                      onChange={(e) => setReclamoForm((prev) => ({ ...prev, fecha_siniestro: e.target.value }))}
-                      className="w-full rounded-lg border border-[#d0cdc7] px-3 py-2 text-sm outline-none transition"
-                    />
-                    <input
-                      type="time"
-                      value={reclamoForm.hora_siniestro}
-                      onChange={(e) => setReclamoForm((prev) => ({ ...prev, hora_siniestro: e.target.value }))}
-                      className="w-full rounded-lg border border-[#d0cdc7] px-3 py-2 text-sm outline-none transition"
-                    />
-                  </div>
-                  <input
-                    value={reclamoForm.direccion}
-                    onChange={(e) => setReclamoForm((prev) => ({ ...prev, direccion: e.target.value }))}
-                    placeholder="Direccion del siniestro"
-                    className="w-full rounded-lg border border-[#d0cdc7] px-3 py-2 text-sm outline-none transition"
-                  />
-                  <textarea
-                    rows={3}
-                    value={reclamoForm.descripcion}
-                    onChange={(e) => setReclamoForm((prev) => ({ ...prev, descripcion: e.target.value }))}
-                    placeholder="Descripcion del siniestro"
-                    className="w-full resize-y rounded-lg border border-[#d0cdc7] px-3 py-2 text-sm outline-none transition"
-                  />
-                </section>
-
-                <section className="space-y-2">
-                  <h5 className="text-[11px] font-semibold uppercase tracking-wide text-[#a8a59f]">Tipo de reclamo</h5>
-                  {TIPO_RECLAMO_OPTIONS.map((item) => (
-                    <label key={item.value} className="flex items-center gap-2 text-sm text-[#1a1916]">
-                      <input
-                        type="checkbox"
-                        checked={reclamoForm.tipo_reclamo.includes(item.value)}
-                        onChange={() => toggleTipoReclamo(item.value)}
-                      />
-                      {item.label}
-                    </label>
-                  ))}
-                </section>
-
-                <section className="space-y-3">
-                  <h5 className="text-[11px] font-semibold uppercase tracking-wide text-[#a8a59f]">Vehiculos</h5>
-                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                    <input
-                      value={reclamoForm.dominio_asegurado}
-                      onChange={(e) => setReclamoForm((prev) => ({ ...prev, dominio_asegurado: e.target.value }))}
-                      placeholder="Dominio vehiculo asegurado"
-                      className="w-full rounded-lg border border-[#d0cdc7] px-3 py-2 text-sm outline-none transition"
-                    />
-                    <input
-                      value={reclamoForm.dominio_tercero}
-                      onChange={(e) => setReclamoForm((prev) => ({ ...prev, dominio_tercero: e.target.value }))}
-                      placeholder="Dominio vehiculo tercero"
-                      className="w-full rounded-lg border border-[#d0cdc7] px-3 py-2 text-sm outline-none transition"
-                    />
-                  </div>
-                </section>
-
-                <section className="space-y-3">
-                  <h5 className="text-[11px] font-semibold uppercase tracking-wide text-[#a8a59f]">Documentos</h5>
-                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                    <input
-                      value={reclamoForm.documento_asegurado}
-                      onChange={(e) => setReclamoForm((prev) => ({ ...prev, documento_asegurado: e.target.value }))}
-                      placeholder="Nro. documento asegurado"
-                      className="w-full rounded-lg border border-[#d0cdc7] px-3 py-2 text-sm outline-none transition"
-                    />
-                    <input
-                      value={reclamoForm.documento_tercero}
-                      onChange={(e) => setReclamoForm((prev) => ({ ...prev, documento_tercero: e.target.value }))}
-                      placeholder="Nro. documento tercero"
-                      className="w-full rounded-lg border border-[#d0cdc7] px-3 py-2 text-sm outline-none transition"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-[#6b6860]">Nro. siniestro</label>
-                    <input
-                      value={form.nro}
-                      readOnly
-                      className="w-full rounded-lg border border-[#d0cdc7] bg-[#f5f4f1] px-3 py-2 text-sm text-[#6b6860] outline-none"
-                    />
-                  </div>
-                </section>
-
-                <section className="space-y-3">
-                  <h5 className="text-[11px] font-semibold uppercase tracking-wide text-[#a8a59f]">Contacto</h5>
-                  <input
-                    value={reclamoForm.responsable_contacto}
-                    onChange={(e) => setReclamoForm((prev) => ({ ...prev, responsable_contacto: e.target.value }))}
-                    placeholder="Responsable de contacto"
-                    className="w-full rounded-lg border border-[#d0cdc7] px-3 py-2 text-sm outline-none transition"
-                  />
-                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                    <input
-                      value={reclamoForm.telefono_contacto}
-                      onChange={(e) => setReclamoForm((prev) => ({ ...prev, telefono_contacto: e.target.value }))}
-                      placeholder="Telefono"
-                      className="w-full rounded-lg border border-[#d0cdc7] px-3 py-2 text-sm outline-none transition"
-                    />
-                    <input
-                      type="email"
-                      value={reclamoForm.email_contacto}
-                      onChange={(e) => setReclamoForm((prev) => ({ ...prev, email_contacto: e.target.value }))}
-                      placeholder="Email"
-                      className="w-full rounded-lg border border-[#d0cdc7] px-3 py-2 text-sm outline-none transition"
-                    />
-                  </div>
-                </section>
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-
         <div>
           <SectionLabel>ARCHIVOS ADJUNTOS</SectionLabel>
           {!editingId ? (
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-sm text-[#6b6860]">Se subiran al guardar el siniestro.</p>
-                <label className="inline-flex cursor-pointer items-center rounded-lg border border-[#d0cdc7] bg-white px-3 py-1.5 text-sm font-medium text-[#6b6860] transition hover:bg-[#f5f4f1] hover:text-[#1a1916]">
-                  Subir archivo
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,application/pdf"
-                    multiple
-                    className="hidden"
-                    onChange={handlePickFiles}
-                    disabled={isSaving}
-                  />
-                </label>
               </div>
+              <div
+                className={`cursor-pointer rounded-[12px] border-2 border-dashed p-8 text-center transition ${
+                  draggingFiles
+                    ? "border-[#1d4ed8] bg-[#eff4ff]"
+                    : "border-[#d0cdc7] bg-[#f5f4f1]"
+                }`}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDraggingFiles(true);
+                }}
+                onDragLeave={() => setDraggingFiles(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDraggingFiles(false);
+                  const files = Array.from(e.dataTransfer.files);
+                  handleFiles(files);
+                }}
+                onClick={() => {
+                  filesInputRef.current?.click();
+                }}
+              >
+                <p className="text-sm font-medium text-[#1a1916]">
+                  {draggingFiles ? "Soltá para subir" : "Arrastrá archivos acá o hacé click para seleccionar"}
+                </p>
+                <p className="mt-1 text-xs text-[#6b6860]">JPG, PNG, WEBP, PDF</p>
+              </div>
+              <input
+                ref={filesInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,application/pdf"
+                multiple
+                style={{ display: "none" }}
+                onChange={handlePickFiles}
+                disabled={isSaving}
+              />
 
               {isSaving && pendingFiles.length > 0 ? (
                 <p className="text-xs text-[#6b6860]">Subiendo archivos...</p>
@@ -758,6 +553,63 @@ function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps
         </div>
       </form>
     </Modal>
+
+      {!editingId && reclamoTarget ? (
+        <Modal
+          open={confirmReclamoOpen}
+          onClose={() => {
+            setConfirmReclamoOpen(false);
+            setReclamoTarget(null);
+          }}
+          title="Agregar reclamo contra terceros"
+          footer={
+            <div className="flex items-center justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setConfirmReclamoOpen(false);
+                  setReclamoTarget(null);
+                }}
+              >
+                No, omitir
+              </Button>
+              <Button
+                type="button"
+                variant="primary"
+                onClick={() => {
+                  setConfirmReclamoOpen(false);
+                  setReclamoModalOpen(true);
+                }}
+              >
+                Si, agregar
+              </Button>
+            </div>
+          }
+        >
+          <p className="text-sm text-[#1a1916]">
+            ¿Querés agregar un reclamo contra terceros para este siniestro?
+          </p>
+        </Modal>
+      ) : null}
+
+      {reclamoTarget ? (
+        <ReclamoTerceroModal
+          open={reclamoModalOpen}
+          onClose={() => {
+            setReclamoModalOpen(false);
+            setReclamoTarget(null);
+          }}
+          siniestroId={reclamoTarget.id}
+          reclamoId={null}
+          nroSiniestro={reclamoTarget.nro}
+          onSaved={() => {
+            setReclamoModalOpen(false);
+            setReclamoTarget(null);
+          }}
+        />
+      ) : null}
+    </>
   );
 }
 

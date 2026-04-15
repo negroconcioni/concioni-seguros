@@ -4,6 +4,7 @@ export type Siniestro = {
   nombre: string;
   apellido: string;
   nro: string;
+  patente: string;
   danio: string;
   taller: string;
   fpedido: string;

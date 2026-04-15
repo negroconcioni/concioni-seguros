@@ -28,6 +28,7 @@ export function exportToExcel(siniestros: Siniestro[]): void {
     nombre: s.nombre,
     apellido: s.apellido,
     nro: s.nro,
+    patente: s.patente,
     danio: s.danio,
     taller: s.taller,
     fpedido: formatDate(s.fpedido),

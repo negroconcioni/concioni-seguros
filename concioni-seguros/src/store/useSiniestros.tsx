@@ -48,6 +48,7 @@ function rowToSiniestro(row: Record<string, unknown>): Siniestro {
     nombre: String(row.nombre ?? ""),
     apellido: String(row.apellido ?? ""),
     nro: String(row.nro ?? ""),
+    patente: String(row.patente ?? ""),
     danio: String(row.danio ?? ""),
     taller: String(row.taller ?? ""),
     fpedido: String(row.fpedido ?? ""),
