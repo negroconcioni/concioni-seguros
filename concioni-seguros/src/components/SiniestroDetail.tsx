@@ -138,6 +138,7 @@ function SiniestroDetail({ open, onClose, siniestroId, onEdit }: SiniestroDetail
                 <DetailField label="Asegurado">{`${s.nombre} ${s.apellido}`.trim() || "—"}</DetailField>
               </div>
               <DetailField label="Patente">{s.patente || "—"}</DetailField>
+              <DetailField label="Nro. de Póliza">{s.nro_poliza || "—"}</DetailField>
 
               <div className="sm:col-span-2">
                 <DetailField label="Descripcion del daño">{s.danio || "—"}</DetailField>

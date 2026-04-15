@@ -62,6 +62,7 @@ function emptyFormState() {
     nombre: "",
     apellido: "",
     nro: "",
+    nro_poliza: "",
     patente: "",
     danio: "",
     taller: "",
@@ -82,6 +83,7 @@ function loadFromSiniestro(s: Siniestro) {
     nombre: s.nombre,
     apellido: s.apellido,
     nro: s.nro,
+    nro_poliza: s.nro_poliza,
     patente: s.patente,
     danio: s.danio,
     taller: s.taller,
@@ -217,6 +219,7 @@ function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps
       nombre: nombreOk,
       apellido: apellidoOk,
       nro: nroOk,
+      nro_poliza: form.nro_poliza.trim(),
       patente: form.patente.trim(),
       danio: form.danio.trim(),
       taller: form.taller.trim(),
@@ -324,7 +327,16 @@ function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps
             <input
               value={form.patente}
               onChange={(e) => setForm((f) => ({ ...f, patente: e.target.value }))}
-              placeholder="Patente"
+              placeholder="ABC 123"
+              className="w-full rounded-lg border border-[#d0cdc7] px-3 py-2 text-sm outline-none transition"
+            />
+          </div>
+          <div className="mt-3">
+            <div className="mb-1 text-xs font-medium text-[#4b5563]">Nro. de Póliza</div>
+            <input
+              value={form.nro_poliza}
+              onChange={(e) => setForm((f) => ({ ...f, nro_poliza: e.target.value }))}
+              placeholder="Ej: POL-00123"
               className="w-full rounded-lg border border-[#d0cdc7] px-3 py-2 text-sm outline-none transition"
             />
           </div>
