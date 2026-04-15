@@ -5,6 +5,7 @@ import Modal from "./ui/Modal";
 import ReclamoTerceroModal from "./ReclamoTerceroModal";
 import Toggle from "./ui/Toggle";
 import { uploadArchivo } from "../store/useArchivos";
+import { addOrdenTrabajo, uploadOrdenTrabajo } from "../store/useOrdenesTrabajo";
 import { useToast } from "./ui/Toast";
 import { useSiniestros } from "../store/useSiniestros";
 import type { Siniestro } from "../types";
@@ -103,12 +104,16 @@ function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps
   const { showToast } = useToast();
   const siniestrosRef = useRef(siniestros);
   const filesInputRef = useRef<HTMLInputElement | null>(null);
+  const ordenInputRef = useRef<HTMLInputElement | null>(null);
   siniestrosRef.current = siniestros;
 
   const [form, setForm] = useState(emptyFormState);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [hasOrdenTrabajo, setHasOrdenTrabajo] = useState(false);
+  const [pendingOrdenFile, setPendingOrdenFile] = useState<File | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [draggingFiles, setDraggingFiles] = useState(false);
+  const [draggingOrden, setDraggingOrden] = useState(false);
   const [confirmReclamoOpen, setConfirmReclamoOpen] = useState(false);
   const [reclamoModalOpen, setReclamoModalOpen] = useState(false);
   const [reclamoTarget, setReclamoTarget] = useState<{ id: string; nro: string } | null>(null);
@@ -119,12 +124,16 @@ function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps
     if (!open) {
       setForm(emptyFormState());
       setPendingFiles([]);
+      setHasOrdenTrabajo(false);
+      setPendingOrdenFile(null);
       setIsSaving(false);
       return;
     }
     if (!editingId) {
       setForm(emptyFormState());
       setPendingFiles([]);
+      setHasOrdenTrabajo(false);
+      setPendingOrdenFile(null);
       return;
     }
     const found = siniestrosRef.current.find((x) => x.id === editingId);
@@ -182,6 +191,21 @@ function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps
 
   function handleRemovePendingFile(index: number) {
     setPendingFiles((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function handleOrdenFile(file: File | null) {
+    if (!file) return;
+    if (file.type !== "application/pdf") {
+      showToast("La orden de trabajo solo admite PDF.", "warn");
+      return;
+    }
+    setPendingOrdenFile(file);
+  }
+
+  function handlePickOrdenFile(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0] ?? null;
+    handleOrdenFile(file);
+    event.target.value = "";
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -245,6 +269,15 @@ function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps
         setIsSaving(false);
         showToast("No se pudo crear el siniestro.", "warn");
         return;
+      }
+      try {
+        const orden = await addOrdenTrabajo(created.id);
+        if (hasOrdenTrabajo && pendingOrdenFile) {
+          await uploadOrdenTrabajo(orden.id, created.id, pendingOrdenFile);
+        }
+      } catch (error) {
+        console.error("Error guardando orden de trabajo del siniestro nuevo:", error);
+        showToast("El siniestro se guardo, pero la orden de trabajo no se pudo completar.", "warn");
       }
       if (pendingFiles.length > 0) {
         try {
@@ -467,6 +500,84 @@ function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps
                 className="w-full rounded-lg border border-[#d0cdc7] px-3 py-2 text-sm outline-none transition"
               />
             </div>
+          ) : null}
+        </div>
+
+        <div>
+          {!editingId ? (
+            <>
+              <SectionLabel>ORDEN DE TRABAJO</SectionLabel>
+              <Toggle
+                checked={hasOrdenTrabajo}
+                onChange={(next) => {
+                  setHasOrdenTrabajo(next);
+                  if (!next) {
+                    setPendingOrdenFile(null);
+                  }
+                }}
+                label="¿Tiene orden de trabajo?"
+              />
+              {hasOrdenTrabajo ? (
+                <div className="mt-3 space-y-3">
+                  <p className="text-sm text-[#6b6860]">Se subira al guardar el siniestro.</p>
+                  <div
+                    className={`cursor-pointer rounded-[12px] border-2 border-dashed p-8 text-center transition ${
+                      draggingOrden
+                        ? "border-[#1d4ed8] bg-[#eff4ff]"
+                        : "border-[#d0cdc7] bg-[#f5f4f1]"
+                    }`}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setDraggingOrden(true);
+                    }}
+                    onDragLeave={() => setDraggingOrden(false)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setDraggingOrden(false);
+                      const file = e.dataTransfer.files?.[0] ?? null;
+                      handleOrdenFile(file);
+                    }}
+                    onClick={() => {
+                      ordenInputRef.current?.click();
+                    }}
+                  >
+                    <p className="text-sm font-medium text-[#1a1916]">
+                      {draggingOrden ? "Soltá para subir" : "Arrastrá archivos acá o hacé click para seleccionar"}
+                    </p>
+                    <p className="mt-1 text-xs text-[#6b6860]">PDF</p>
+                  </div>
+                  <input
+                    ref={ordenInputRef}
+                    type="file"
+                    accept="application/pdf"
+                    style={{ display: "none" }}
+                    onChange={handlePickOrdenFile}
+                    disabled={isSaving}
+                  />
+                  {pendingOrdenFile ? (
+                    <article className="relative overflow-hidden rounded-lg border border-[#e2e0db] bg-white">
+                      <button
+                        type="button"
+                        className="absolute right-2 top-2 z-10 inline-flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-sm text-white transition hover:bg-black/80"
+                        aria-label="Quitar archivo de orden"
+                        onClick={() => setPendingOrdenFile(null)}
+                        disabled={isSaving}
+                      >
+                        ×
+                      </button>
+                      <div className="flex h-[120px] w-full flex-col items-center justify-center gap-2 bg-[#f5f4f1] px-3">
+                        <PdfIcon />
+                        <p className="line-clamp-2 text-center text-xs font-medium text-[#1a1916]">
+                          {pendingOrdenFile.name}
+                        </p>
+                      </div>
+                    </article>
+                  ) : (
+                    <p className="text-sm text-[#6b6860]">Sin PDF seleccionado</p>
+                  )}
+                </div>
+              ) : null}
+            </>
           ) : null}
         </div>
 
