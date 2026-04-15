@@ -9,14 +9,15 @@ type SidebarProps = {
   mobileOpen: boolean;
 };
 
-const links: { view: ActiveView; label: string; icon: "grid" | "list" | "bell" | "doc" }[] = [
+const links: { view: ActiveView; label: string; icon: "grid" | "list" | "bell" | "doc" | "doc-check" }[] = [
   { view: "dashboard", label: "Dashboard", icon: "grid" },
   { view: "siniestros", label: "Siniestros", icon: "list" },
-  { view: "alertas", label: "Alertas", icon: "bell" },
   { view: "reclamos", label: "Reclamos", icon: "doc" },
+  { view: "ordenes", label: "Ordenes", icon: "doc-check" },
+  { view: "alertas", label: "Alertas", icon: "bell" },
 ];
 
-function Icon({ kind }: { kind: "grid" | "list" | "bell" | "doc" | "gear" }) {
+function Icon({ kind }: { kind: "grid" | "list" | "bell" | "doc" | "doc-check" | "gear" }) {
   if (kind === "grid") {
     return (
       <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 fill-none stroke-current" strokeWidth="1.8">
@@ -53,6 +54,16 @@ function Icon({ kind }: { kind: "grid" | "list" | "bell" | "doc" | "gear" }) {
         <path d="M7 3h7l5 5v13H7z" />
         <path d="M14 3v6h5" />
         <path d="M9 13h6M9 16h6" />
+      </svg>
+    );
+  }
+
+  if (kind === "doc-check") {
+    return (
+      <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 fill-none stroke-current" strokeWidth="1.8">
+        <path d="M7 3h7l5 5v13H7z" />
+        <path d="M14 3v6h5" />
+        <path d="m9 16 2 2 4-4" />
       </svg>
     );
   }

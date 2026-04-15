@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import ArchivosSection from "./ArchivosSection";
+import ArchivoCleasSection from "./ArchivoCleasSection";
+import OrdenTrabajoSection from "./OrdenTrabajoSection";
 import ReclamoTerceroModal from "./ReclamoTerceroModal";
 import Badge from "./ui/Badge";
 import Button from "./ui/Button";
@@ -193,6 +195,32 @@ function SiniestroDetail({ open, onClose, siniestroId, onEdit }: SiniestroDetail
             <section className="space-y-3 rounded-xl border border-[#e2e0db] bg-white p-4">
               <div className="flex items-center justify-between gap-2">
                 <h4 className="text-[12px] font-semibold uppercase tracking-wide text-[#6b6860]">
+                  Archivos adjuntos
+                </h4>
+                <span className="text-xs text-[#6b6860]">{archivosCount} archivo(s)</span>
+              </div>
+              <ArchivosSection siniestroId={s.id} reclamoId={null} />
+            </section>
+
+            <section className="space-y-3 rounded-xl border border-[#e2e0db] bg-white p-4">
+              <h4 className="text-[12px] font-semibold uppercase tracking-wide text-[#6b6860]">
+                Orden de Trabajo
+              </h4>
+              <OrdenTrabajoSection siniestroId={s.id} />
+            </section>
+
+            {s.cleas ? (
+              <section className="space-y-3 rounded-xl border border-[#e2e0db] bg-white p-4">
+                <h4 className="text-[12px] font-semibold uppercase tracking-wide text-[#6b6860]">
+                  Archivo CLEAS
+                </h4>
+                <ArchivoCleasSection siniestroId={s.id} />
+              </section>
+            ) : null}
+
+            <section className="space-y-3 rounded-xl border border-[#e2e0db] bg-white p-4">
+              <div className="flex items-center justify-between gap-2">
+                <h4 className="text-[12px] font-semibold uppercase tracking-wide text-[#6b6860]">
                   Reclamo contra terceros
                 </h4>
                 {reclamo ? (
@@ -257,16 +285,6 @@ function SiniestroDetail({ open, onClose, siniestroId, onEdit }: SiniestroDetail
                   </div>
                 </div>
               ) : null}
-            </section>
-
-            <section className="space-y-3 rounded-xl border border-[#e2e0db] bg-white p-4">
-              <div className="flex items-center justify-between gap-2">
-                <h4 className="text-[12px] font-semibold uppercase tracking-wide text-[#6b6860]">
-                  Archivos adjuntos
-                </h4>
-                <span className="text-xs text-[#6b6860]">{archivosCount} archivo(s)</span>
-              </div>
-              <ArchivosSection siniestroId={s.id} reclamoId={null} />
             </section>
           </div>
         )}

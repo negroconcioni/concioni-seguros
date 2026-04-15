@@ -11,14 +11,16 @@ import { checkAndSendEmails } from "./utils/email";
 import { exportToExcel } from "./utils/excel";
 import Alertas from "./views/Alertas";
 import Dashboard from "./views/Dashboard";
+import OrdenesTrabajo from "./views/OrdenesTrabajo";
 import Reclamos from "./views/Reclamos";
 import Siniestros from "./views/Siniestros";
 
 const viewTitles: Record<ActiveView, string> = {
   dashboard: "Dashboard",
   siniestros: "Siniestros",
-  alertas: "Alertas",
   reclamos: "Reclamos",
+  ordenes: "Ordenes",
+  alertas: "Alertas",
 };
 
 function deliveryAlertCount(siniestros: { fentrega: string }[]) {
@@ -178,11 +180,14 @@ function App() {
                   onOpenSiniestroEdit={openEditSiniestro}
                 />
               ) : null}
-              {activeView === "alertas" ? (
-                <Alertas onOpenSiniestroDetail={openSiniestroDetail} />
-              ) : null}
               {activeView === "reclamos" ? (
                 <Reclamos onOpenSiniestroDetail={openSiniestroDetail} />
+              ) : null}
+              {activeView === "ordenes" ? (
+                <OrdenesTrabajo onOpenSiniestroDetail={openSiniestroDetail} />
+              ) : null}
+              {activeView === "alertas" ? (
+                <Alertas onOpenSiniestroDetail={openSiniestroDetail} />
               ) : null}
             </main>
           </div>

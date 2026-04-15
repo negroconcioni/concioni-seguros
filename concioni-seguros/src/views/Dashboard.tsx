@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Badge from "../components/ui/Badge";
 import StatCard from "../components/ui/StatCard";
+import { supabase } from "../lib/supabase";
 import { fetchReclamosPendientes } from "../store/useReclamos";
 import { useSiniestros } from "../store/useSiniestros";
 import type { ReclamoTercero, Siniestro } from "../types";
@@ -61,6 +62,48 @@ type UltimoCardProps = {
   onOpen: (id: string) => void;
 };
 
+type SiniestroSummary = {
+  id: string;
+  nombre: string;
+  apellido: string;
+  nro: string;
+  inspector: string;
+};
+
+type JoinedRow = {
+  siniestro_id: string;
+  siniestros:
+    | {
+        id?: string;
+        nombre?: string;
+        apellido?: string;
+        nro?: string;
+        inspector?: string;
+      }
+    | Array<{
+        id?: string;
+        nombre?: string;
+        apellido?: string;
+        nro?: string;
+        inspector?: string;
+      }>
+    | null;
+};
+
+function rowToSummary(row: JoinedRow): SiniestroSummary | null {
+  const joined = Array.isArray(row.siniestros) ? row.siniestros[0] : row.siniestros;
+  if (!joined) return null;
+  const id = String(joined.id ?? row.siniestro_id ?? "");
+  if (!id) return null;
+  return {
+    id,
+    nombre: String(joined.nombre ?? ""),
+    apellido: String(joined.apellido ?? ""),
+    nro: String(joined.nro ?? ""),
+    inspector: String(joined.inspector ?? ""),
+  };
+}
+
 function UltimoSiniestroCard({ s, onOpen }: UltimoCardProps) {
   const diff = deliveryDiff(s);
   const status = entregaStatus(diff);
@@ -96,6 +139,8 @@ function UltimoSiniestroCard({ s, onOpen }: UltimoCardProps) {
 function Dashboard({ onOpenSiniestroDetail }: DashboardProps) {
   const { siniestros } = useSiniestros();
   const [reclamosPendientes, setReclamosPendientes] = useState<ReclamoTercero[]>([]);
+  const [ordenesPendientes, setOrdenesPendientes] = useState<SiniestroSummary[]>([]);
+  const [cleasPendientes, setCleasPendientes] = useState<SiniestroSummary[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -113,6 +158,56 @@ function Dashboard({ onOpenSiniestroDetail }: DashboardProps) {
       }
     };
     void load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadPendings = async () => {
+      try {
+        const [ordenesRes, cleasRes] = await Promise.all([
+          supabase
+            .from("ordenes_trabajo")
+            .select("siniestro_id, siniestros(id, nombre, apellido, nro, inspector)")
+            .eq("estado", "pendiente"),
+          supabase
+            .from("archivos_cleas")
+            .select("siniestro_id, siniestros(id, nombre, apellido, nro, inspector)")
+            .eq("estado", "pendiente"),
+        ]);
+
+        if (cancelled) return;
+
+        if (ordenesRes.error) {
+          console.error("Error cargando ordenes pendientes:", ordenesRes.error);
+          setOrdenesPendientes([]);
+        } else {
+          const mapped = (ordenesRes.data ?? [])
+            .map((row) => rowToSummary(row as unknown as JoinedRow))
+            .filter((row): row is SiniestroSummary => row !== null);
+          setOrdenesPendientes(mapped);
+        }
+
+        if (cleasRes.error) {
+          console.error("Error cargando CLEAS pendientes:", cleasRes.error);
+          setCleasPendientes([]);
+        } else {
+          const mapped = (cleasRes.data ?? [])
+            .map((row) => rowToSummary(row as unknown as JoinedRow))
+            .filter((row): row is SiniestroSummary => row !== null);
+          setCleasPendientes(mapped);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error("Error cargando pendientes de ordenes/CLEAS:", error);
+          setOrdenesPendientes([]);
+          setCleasPendientes([]);
+        }
+      }
+    };
+    void loadPendings();
     return () => {
       cancelled = true;
     };
@@ -163,7 +258,7 @@ function Dashboard({ onOpenSiniestroDetail }: DashboardProps) {
     <div className="space-y-5 md:space-y-8">
       <section>
         <h2 className="sr-only">Resumen</h2>
-        <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-7">
           <StatCard label="Total Siniestros" value={String(total)} inverted />
           <StatCard label="Entregas Vencidas" value={String(vencidas)} />
           <StatCard label="Aplican CLEAS" value={String(cleasCount)} />
@@ -172,10 +267,21 @@ function Dashboard({ onOpenSiniestroDetail }: DashboardProps) {
             <p className="text-[11px] uppercase tracking-wider text-[#c0392b]">Reclamos Pendientes</p>
             <p className="mt-1 text-[34px] font-bold tracking-tight">{reclamosPendientesSiniestros.length}</p>
           </article>
+          <article className="w-full rounded-xl border border-[#fce7cc] bg-[#fff7ed] p-4 text-[#d97706]">
+            <p className="text-[11px] uppercase tracking-wider text-[#d97706]">Órdenes Pendientes</p>
+            <p className="mt-1 text-[34px] font-bold tracking-tight">{ordenesPendientes.length}</p>
+          </article>
+          <article className="w-full rounded-xl border border-[#c7d7fc] bg-[#eff4ff] p-4 text-[#1d4ed8]">
+            <p className="text-[11px] uppercase tracking-wider text-[#1d4ed8]">CLEAS Pendientes</p>
+            <p className="mt-1 text-[34px] font-bold tracking-tight">{cleasPendientes.length}</p>
+          </article>
         </div>
       </section>
 
-      {alertas.length > 0 || reclamosPendientesSiniestros.length > 0 ? (
+      {alertas.length > 0 ||
+      reclamosPendientesSiniestros.length > 0 ||
+      ordenesPendientes.length > 0 ||
+      cleasPendientes.length > 0 ? (
         <section className="w-full min-w-0 rounded-xl border border-[#c7d7fc] bg-[#eff4ff] p-4 md:p-5">
           <h3 className="text-base font-semibold text-[#1d4ed8]">Alertas de entrega pendientes</h3>
           {alertas.length === 0 ? (
@@ -235,6 +341,60 @@ function Dashboard({ onOpenSiniestroDetail }: DashboardProps) {
                           {`${s.nombre} ${s.apellido}`.trim()} — {s.nro}
                         </p>
                         <p className="mt-0.5 text-sm text-[#c0392b]">Reclamo contra terceros pendiente</p>
+                        <p className="mt-1 text-xs text-[#6b6860]">{s.inspector}</p>
+                      </div>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className="mt-4 border-t border-[#f5d8ad] pt-4">
+            <h4 className="text-sm font-semibold text-[#d97706]">Órdenes de trabajo pendientes</h4>
+            {ordenesPendientes.length === 0 ? (
+              <p className="mt-2 text-sm text-[#6b6860]">Sin órdenes pendientes.</p>
+            ) : (
+              <ul className="mt-3 space-y-2">
+                {ordenesPendientes.map((s) => (
+                  <li key={s.id}>
+                    <button
+                      type="button"
+                      onClick={() => onOpenSiniestroDetail(s.id)}
+                      className="flex w-full items-center gap-3 rounded-lg border border-[#f5d8ad] bg-white/70 p-3 text-left transition hover:bg-white"
+                    >
+                      <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#d97706]" aria-hidden />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-[#1a1916]">
+                          {`${s.nombre} ${s.apellido}`.trim()} — {s.nro}
+                        </p>
+                        <p className="mt-1 text-xs text-[#6b6860]">{s.inspector}</p>
+                      </div>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className="mt-4 border-t border-[#c7d7fc] pt-4">
+            <h4 className="text-sm font-semibold text-[#1d4ed8]">Archivos CLEAS pendientes</h4>
+            {cleasPendientes.length === 0 ? (
+              <p className="mt-2 text-sm text-[#6b6860]">Sin archivos CLEAS pendientes.</p>
+            ) : (
+              <ul className="mt-3 space-y-2">
+                {cleasPendientes.map((s) => (
+                  <li key={s.id}>
+                    <button
+                      type="button"
+                      onClick={() => onOpenSiniestroDetail(s.id)}
+                      className="flex w-full items-center gap-3 rounded-lg border border-[#c7d7fc] bg-white/70 p-3 text-left transition hover:bg-white"
+                    >
+                      <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#1d4ed8]" aria-hidden />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-[#1a1916]">
+                          {`${s.nombre} ${s.apellido}`.trim()} — {s.nro}
+                        </p>
                         <p className="mt-1 text-xs text-[#6b6860]">{s.inspector}</p>
                       </div>
                     </button>

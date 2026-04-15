@@ -59,3 +59,21 @@ export type Archivo = {
   tipo: "image" | "pdf";
   created_at: string;
 };
+
+export type OrdenTrabajo = {
+  id: string;
+  siniestro_id: string;
+  estado: "pendiente" | "cargada";
+  archivo_url: string | null;
+  archivo_nombre: string | null;
+  created_at: string;
+};
+
+export type ArchivoCleas = {
+  id: string;
+  siniestro_id: string;
+  estado: "pendiente" | "cargado";
+  archivo_url: string | null;
+  archivo_nombre: string | null;
+  created_at: string;
+};
