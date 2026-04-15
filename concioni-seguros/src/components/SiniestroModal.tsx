@@ -5,6 +5,7 @@ import Modal from "./ui/Modal";
 import ReclamoTerceroModal from "./ReclamoTerceroModal";
 import Toggle from "./ui/Toggle";
 import { uploadArchivo } from "../store/useArchivos";
+import { addArchivoCleas, uploadArchivoCleas } from "../store/useArchivosCleas";
 import { addOrdenTrabajo, uploadOrdenTrabajo } from "../store/useOrdenesTrabajo";
 import { useToast } from "./ui/Toast";
 import { useSiniestros } from "../store/useSiniestros";
@@ -105,15 +106,18 @@ function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps
   const siniestrosRef = useRef(siniestros);
   const filesInputRef = useRef<HTMLInputElement | null>(null);
   const ordenInputRef = useRef<HTMLInputElement | null>(null);
+  const cleasInputRef = useRef<HTMLInputElement | null>(null);
   siniestrosRef.current = siniestros;
 
   const [form, setForm] = useState(emptyFormState);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [hasOrdenTrabajo, setHasOrdenTrabajo] = useState(false);
   const [pendingOrdenFile, setPendingOrdenFile] = useState<File | null>(null);
+  const [pendingCleasFile, setPendingCleasFile] = useState<File | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [draggingFiles, setDraggingFiles] = useState(false);
   const [draggingOrden, setDraggingOrden] = useState(false);
+  const [draggingCleas, setDraggingCleas] = useState(false);
   const [confirmReclamoOpen, setConfirmReclamoOpen] = useState(false);
   const [reclamoModalOpen, setReclamoModalOpen] = useState(false);
   const [reclamoTarget, setReclamoTarget] = useState<{ id: string; nro: string } | null>(null);
@@ -126,6 +130,7 @@ function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps
       setPendingFiles([]);
       setHasOrdenTrabajo(false);
       setPendingOrdenFile(null);
+      setPendingCleasFile(null);
       setIsSaving(false);
       return;
     }
@@ -134,6 +139,7 @@ function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps
       setPendingFiles([]);
       setHasOrdenTrabajo(false);
       setPendingOrdenFile(null);
+      setPendingCleasFile(null);
       return;
     }
     const found = siniestrosRef.current.find((x) => x.id === editingId);
@@ -208,6 +214,26 @@ function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps
     event.target.value = "";
   }
 
+  function handleCleasFile(file: File | null) {
+    if (!file) return;
+    const isValid =
+      file.type === "application/pdf" ||
+      file.type === "image/jpeg" ||
+      file.type === "image/png" ||
+      file.type === "image/webp";
+    if (!isValid) {
+      showToast("El archivo CLEAS solo admite PDF, JPG, PNG o WEBP.", "warn");
+      return;
+    }
+    setPendingCleasFile(file);
+  }
+
+  function handlePickCleasFile(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0] ?? null;
+    handleCleasFile(file);
+    event.target.value = "";
+  }
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (isSaving) {
@@ -278,6 +304,17 @@ function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps
       } catch (error) {
         console.error("Error guardando orden de trabajo del siniestro nuevo:", error);
         showToast("El siniestro se guardo, pero la orden de trabajo no se pudo completar.", "warn");
+      }
+      if (cleas) {
+        try {
+          const archivoCleas = await addArchivoCleas(created.id);
+          if (pendingCleasFile) {
+            await uploadArchivoCleas(archivoCleas.id, created.id, pendingCleasFile);
+          }
+        } catch (error) {
+          console.error("Error guardando archivo CLEAS del siniestro nuevo:", error);
+          showToast("El siniestro se guardo, pero el archivo CLEAS no se pudo completar.", "warn");
+        }
       }
       if (pendingFiles.length > 0) {
         try {
@@ -468,6 +505,74 @@ function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps
               }`}
             >
               {cleasPreview ? "Aplica para CLEAS" : "No aplica para CLEAS"}
+            </div>
+          ) : null}
+          {!editingId && cleasPreview ? (
+            <div className="mt-3 space-y-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-[#a8a59f]">Archivo CLEAS</p>
+              <div
+                className={`cursor-pointer rounded-[12px] border-2 border-dashed p-8 text-center transition ${
+                  draggingCleas
+                    ? "border-[#1d4ed8] bg-[#eff4ff]"
+                    : "border-[#d0cdc7] bg-[#f5f4f1]"
+                }`}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDraggingCleas(true);
+                }}
+                onDragLeave={() => setDraggingCleas(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDraggingCleas(false);
+                  const file = e.dataTransfer.files?.[0] ?? null;
+                  handleCleasFile(file);
+                }}
+                onClick={() => {
+                  cleasInputRef.current?.click();
+                }}
+              >
+                <p className="text-sm font-medium text-[#1a1916]">
+                  {draggingCleas ? "Soltá para subir" : "Arrastrá archivos acá o hacé click para seleccionar"}
+                </p>
+                <p className="mt-1 text-xs text-[#6b6860]">JPG, PNG, WEBP, PDF</p>
+              </div>
+              <input
+                ref={cleasInputRef}
+                type="file"
+                accept="application/pdf,image/jpeg,image/png,image/webp"
+                style={{ display: "none" }}
+                onChange={handlePickCleasFile}
+                disabled={isSaving}
+              />
+              {pendingCleasFile ? (
+                <article className="relative overflow-hidden rounded-lg border border-[#e2e0db] bg-white">
+                  <button
+                    type="button"
+                    className="absolute right-2 top-2 z-10 inline-flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-sm text-white transition hover:bg-black/80"
+                    aria-label="Quitar archivo CLEAS"
+                    onClick={() => setPendingCleasFile(null)}
+                    disabled={isSaving}
+                  >
+                    ×
+                  </button>
+                  {pendingCleasFile.type === "application/pdf" ? (
+                    <div className="flex h-[120px] w-full flex-col items-center justify-center gap-2 bg-[#f5f4f1] px-3">
+                      <PdfIcon />
+                      <p className="line-clamp-2 text-center text-xs font-medium text-[#1a1916]">
+                        {pendingCleasFile.name}
+                      </p>
+                    </div>
+                  ) : (
+                    <img
+                      src={filePreviewUrl(pendingCleasFile)}
+                      alt={pendingCleasFile.name}
+                      className="h-[120px] w-full object-cover"
+                    />
+                  )}
+                </article>
+              ) : (
+                <p className="text-sm text-[#6b6860]">Sin archivo CLEAS seleccionado</p>
+              )}
             </div>
           ) : null}
         </div>
