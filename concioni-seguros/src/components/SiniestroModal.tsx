@@ -324,7 +324,7 @@ function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps
             <input
               value={form.patente}
               onChange={(e) => setForm((f) => ({ ...f, patente: e.target.value }))}
-              placeholder="ABC 123"
+              placeholder="Patente"
               className="w-full rounded-lg border border-[#d0cdc7] px-3 py-2 text-sm outline-none transition"
             />
           </div>
