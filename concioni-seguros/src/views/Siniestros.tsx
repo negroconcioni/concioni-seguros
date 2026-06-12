@@ -316,6 +316,7 @@ function Siniestros({ onOpenSiniestroDetail, onOpenSiniestroEdit }: SiniestrosPr
         <table className="w-full min-w-0 text-left text-sm lg:min-w-[1100px]">
           <thead>
             <tr className="border-b border-[#e2e0db] bg-[#f5f4f1] text-xs font-semibold uppercase tracking-wide text-[#6b6860]">
+              <th className="w-10 px-2 py-3" aria-hidden />
               <th className="px-3 py-3">Inspector</th>
               <th className="px-3 py-3">Asegurado</th>
               <th className="px-3 py-3">Patente</th>
@@ -336,13 +337,24 @@ function Siniestros({ onOpenSiniestroDetail, onOpenSiniestroEdit }: SiniestrosPr
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={15} className="px-4 py-8 text-center text-[#6b6860]">
+                <td colSpan={16} className="px-4 py-8 text-center text-[#6b6860]">
                   No hay resultados para el filtro actual.
                 </td>
               </tr>
             ) : (
               filtered.map((s) => (
                 <tr key={s.id} className="border-b border-[#eeecea] last:border-0 hover:bg-[#faf9f8]">
+                  <td className="px-2 py-3">
+                    <Button
+                      variant="danger-ghost"
+                      size="icon"
+                      onClick={() => handleDelete(s)}
+                      aria-label="Eliminar"
+                      title="Eliminar"
+                    >
+                      <IconDelete />
+                    </Button>
+                  </td>
                   <td className="px-3 py-3">{s.inspector}</td>
                   <td className="px-3 py-3">{`${s.nombre} ${s.apellido}`.trim()}</td>
                   <td className="px-3 py-3">{s.patente || "—"}</td>
@@ -403,15 +415,6 @@ function Siniestros({ onOpenSiniestroDetail, onOpenSiniestroEdit }: SiniestrosPr
                         title="Editar"
                       >
                         <IconEdit />
-                      </Button>
-                      <Button
-                        variant="danger-ghost"
-                        size="icon"
-                        onClick={() => handleDelete(s)}
-                        aria-label="Eliminar"
-                        title="Eliminar"
-                      >
-                        <IconDelete />
                       </Button>
                     </div>
                   </td>

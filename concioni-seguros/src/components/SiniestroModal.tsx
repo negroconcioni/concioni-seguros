@@ -243,8 +243,8 @@ function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps
     const nombreOk = form.nombre.trim();
     const apellidoOk = form.apellido.trim();
     const nroOk = form.nro.trim();
-    if (!inspectorOk || !nombreOk || !apellidoOk || !nroOk) {
-      showToast("Completa inspector, nombre, apellido y numero de siniestro.", "warn");
+    if (!nombreOk || !apellidoOk || !nroOk) {
+      showToast("Completa nombre, apellido y numero de siniestro.", "warn");
       return;
     }
     if (form.reclamo && !form.rfecha.trim()) {
@@ -354,7 +354,6 @@ function SiniestroModal({ open, onClose, editingId = null }: SiniestroModalProps
         <div>
           <SectionLabel>Inspector</SectionLabel>
           <select
-            required
             value={form.inspector}
             onChange={(e) => setForm((f) => ({ ...f, inspector: e.target.value }))}
             className="w-full rounded-lg border border-[#d0cdc7] bg-white px-3 py-2.5 text-sm text-[#1a1916] outline-none transition"
